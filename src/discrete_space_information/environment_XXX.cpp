@@ -1897,8 +1897,6 @@ bool EnvironmentXXXLATTICE::InitializeEnv(
     }
 
     SBPL_PRINTF("size of env: %d by %d\n", EnvXXXCfg.EnvWidth_c, EnvXXXCfg.EnvHeight_c);
-    // stateParents.clear();
-    // trailerTransitions.clear();
 
     return true;
 }
@@ -2455,13 +2453,6 @@ void EnvironmentXXXLAT::ConvertStateIDPathintoXYThetaPath(
         int sourceID = stateIDPath->at(pind);
         int targetID = stateIDPath->at(pind + 1);
 
-        // auto sourceHistoryIt = stateToPathHistory.find(sourceID);
-        // if (sourceHistoryIt == stateToPathHistory.end()) {
-        //     SBPL_ERROR("Path history not fund for state %d", sourceID);
-        //     throw SBPL_Exception("ERROR: path history not found");
-        // }
-        // const PathHistory& currentHistory = sourceHistoryIt->second;
-        // TrailerState currentTrailer = currentHistory.currentTrailer;
         auto targetHistoryIt = stateToPathHistory.find(targetID);
         if (targetHistoryIt == stateToPathHistory.end()) {
             SBPL_ERROR("Path history not fund for state %d", targetID);
@@ -2517,12 +2508,6 @@ void EnvironmentXXXLAT::ConvertStateIDPathintoXYThetaPath(
         sourcey = DISCXY2CONT(sourcey_c, EnvXXXCfg.cellsize_m);
         sourcetheta = DiscTheta2ContNew(sourcetheta_c);
 
-        // double currentX = sourcex;
-        // double currentY = sourcey;
-        // double currentTheta = sourcetheta;
-
-        // std::vector<PathState> intermediatePath = currentHistory.positions;
-
         // TODO - when there are no motion primitives we should still print source state
         for (int ipind = 0; ipind < ((int)actionV[bestsind]->intermptV.size()) - 1; ipind++) {
             // translate appropriately
@@ -2551,27 +2536,7 @@ void EnvironmentXXXLAT::ConvertStateIDPathintoXYThetaPath(
             // logFile << "Step " << ipind << " of primitive " << bestsind << "\n";
             // logFile << "    Source State: x=" << currentX << ", y=" << currentY << ", theta=" << currentTheta << "\n";
             // logFile << "    Target State: x=" << intermpt.x << ", y=" << intermpt.y << ", theta=" << intermpt.theta << "\n";
-            // currentX = intermpt.x;
-            // currentY = intermpt.y;
-            // currentTheta = intermpt.theta;
         }
-        // PathState intermediateState = {
-        //     currentX, currentY, currentTheta,
-        //     currentHistory.positions.back().time + actionV[bestsind]->time
-        // };
-        // intermediatePath.push_back(intermediateState);
-        // TrailerState intermediateTrailer;
-        // if (calculateTrailerFromPath(intermediatePath, intermediateTrailer)) {
-        //     // logFile << sourceID << "- ROBOT values -- x: (" << intermediateState.x << " " << intermpt.x << "), y: (" << intermediateState.y << " " << intermpt.y << "), theta: (" << intermediateState.theta << " " << intermpt.theta << ")" << "\n";
-        //     logFile << sourceID << "- TRAILER values -- x: (" << currentTrailer.x << " " << intermediateTrailer.x << "), y: (" << currentTrailer.y << " " << intermediateTrailer.y << "), theta1: (" << currentTrailer.theta1 << " " << intermediateTrailer.theta1 << "), theta2: (" << currentTrailer.theta2 << " " << intermediateTrailer.theta2 << ")" << "\n";
-        //     logFile << "\n";
-        //     sbpl_xy_theta_pt_t trailer_pt;
-        //     trailer_pt.x = intermediateTrailer.x;
-        //     trailer_pt.y = intermediateTrailer.y;
-        //     trailer_pt.theta = intermediateTrailer.theta2;
-        //     trailerPath->push_back(trailer_pt);
-        //     currentTrailer = intermediateTrailer;
-        // }
         sbpl_xy_theta_pt_t trailer_pt;
         trailer_pt.x = currentTrailer.x;
         trailer_pt.y = currentTrailer.y;
@@ -2860,12 +2825,6 @@ bool EnvironmentXXXLATTICE::calculateTrailerFromPath(
 {
     if (path.size() < 2) return false;
 
-    // TrailerState trailer(
-    //     path[0].x - R0*cos(path[0].theta) - F1*cos(path[0].theta) - (F2/2)*cos(path[0].theta),
-    //     path[0].y - R0*sin(path[0].theta) - F1*sin(path[0].theta) - (F2/2)*sin(path[0].theta),
-    //     path[0].theta,
-    //     path[0].theta
-    // );
     TrailerState trailer(
         path[0].x - R0*cos(path[0].theta) - F1*cos(EnvXXXCfg.StartTheta1) - (F2/2)*cos(EnvXXXCfg.StartTheta2),
         path[0].y - R0*sin(path[0].theta) - F1*sin(EnvXXXCfg.StartTheta1) - (F2/2)*sin(EnvXXXCfg.StartTheta2),
@@ -2930,16 +2889,6 @@ bool EnvironmentXXXLATTICE::calculateTrailerTransition(double startX, double sta
     endTrailer.x = endX - R0*cos(endTheta) - F1*cos(theta1) - (F2/2)*cos(theta2);
     endTrailer.y = endY - R0*sin(endTheta) - F1*sin(theta1) - (F2/2)*sin(theta2);
 
-    // int disc_endX = CONTXY2DISC(endTrailer.x, EnvXXXCfg.cellsize_m);
-    // int disc_endY = CONTXY2DISC(endTrailer.y, EnvXXXCfg.cellsize_m);
-    // if (!IsValidCell(disc_endX, disc_endY)) {
-    //     return false;
-    // }
-    // if (EnvXXXCfg.Grid2D[disc_endX][disc_endY] >= EnvXXXCfg.cost_inscribed_thresh)
-    // {
-    //     return false;
-    // }
-    // return true;
     return IsValidTrailerConfiguration(endTrailer.x, endTrailer.y, endTrailer.theta2);
 }
 
@@ -3025,7 +2974,6 @@ void EnvironmentXXXLAT::GetSuccs(
             EnvXXXCfg.StartTheta2
         );
         stateToPathHistory[SourceStateID] = currentHistory;
-        // trailerStates[SourceStateID] = currentTrailer;
     } else {
         auto it = stateToPathHistory.find(SourceStateID);
         if (it == stateToPathHistory.end()) {
@@ -3081,10 +3029,6 @@ void EnvironmentXXXLAT::GetSuccs(
         }
 
         stateToPathHistory[OutHashEntry->stateID] = std::move(newHistory);
-        // SetStateParent(OutHashEntry->stateID, SourceStateID);
-        // StateTransitionKey key{SourceStateID, OutHashEntry->stateID};
-        // trailerTransitions[key] = newTrailer;
-        // trailerStates[OutHashEntry->stateID] = newTrailer;
 
         SuccIDV->push_back(OutHashEntry->stateID);
         CostV->push_back(cost);
@@ -3496,31 +3440,31 @@ int EnvironmentXXXLAT::GetGoalHeuristic(int stateID)
             EuclideanDistance_m(HashEntry->X, HashEntry->Y, EnvXXXCfg.EndX_c, EnvXXXCfg.EndY_c));
 
     // Add clearance component based on Grid2D cost
-    double clearancePenalty = 0;
-    const int CLEARANCE_WINDOW = 50;  // Increased window to look further for obstacles
-    double minCostRatio = 1.0;  // Track the best clearance we find
-    // First find minimum cost ratio (best clearance) in the window
-    for(int dx = -CLEARANCE_WINDOW; dx <= CLEARANCE_WINDOW; dx++) {
-        for(int dy = -CLEARANCE_WINDOW; dy <= CLEARANCE_WINDOW; dy++) {
-            int checkX = HashEntry->X + dx;
-            int checkY = HashEntry->Y + dy;
-            if(IsValidCell(checkX, checkY)) {
-                int cellCost = EnvXXXCfg.Grid2D[checkX][checkY];
-                double costRatio = (double)cellCost / EnvXXXCfg.cost_inscribed_thresh;
-                double distance = sqrt(dx*dx + dy*dy);
-                // For each direction, accumulate inverse clearance
-                clearancePenalty += costRatio * (CLEARANCE_WINDOW - distance) / CLEARANCE_WINDOW;
-            }
-        }
-    }
-    // Scale the clearance penalty - even small costs will contribute
-    const double CLEARANCE_WEIGHT = 1.0;  
-    int totalHeuristic = (int)(((double)__max(h2D, hEuclid)) / EnvXXXCfg.nominalvel_mpersecs + 
-                              CLEARANCE_WEIGHT * clearancePenalty);
-    return totalHeuristic;
+    // double clearancePenalty = 0;
+    // const int CLEARANCE_WINDOW = 50;  // Increased window to look further for obstacles
+    // double minCostRatio = 1.0;  // Track the best clearance we find
+    // // First find minimum cost ratio (best clearance) in the window
+    // for(int dx = -CLEARANCE_WINDOW; dx <= CLEARANCE_WINDOW; dx++) {
+    //     for(int dy = -CLEARANCE_WINDOW; dy <= CLEARANCE_WINDOW; dy++) {
+    //         int checkX = HashEntry->X + dx;
+    //         int checkY = HashEntry->Y + dy;
+    //         if(IsValidCell(checkX, checkY)) {
+    //             int cellCost = EnvXXXCfg.Grid2D[checkX][checkY];
+    //             double costRatio = (double)cellCost / EnvXXXCfg.cost_inscribed_thresh;
+    //             double distance = sqrt(dx*dx + dy*dy);
+    //             // For each direction, accumulate inverse clearance
+    //             clearancePenalty += costRatio * (CLEARANCE_WINDOW - distance) / CLEARANCE_WINDOW;
+    //         }
+    //     }
+    // }
+    // // Scale the clearance penalty - even small costs will contribute
+    // const double CLEARANCE_WEIGHT = 1.0;  
+    // int totalHeuristic = (int)(((double)__max(h2D, hEuclid)) / EnvXXXCfg.nominalvel_mpersecs + 
+    //                           CLEARANCE_WEIGHT * clearancePenalty);
+    // return totalHeuristic;
 
     // define this function if it is used in the planner (heuristic backward search would use it)
-    // return (int)(((double)__max(h2D, hEuclid)) / EnvXXXCfg.nominalvel_mpersecs);
+    return (int)(((double)__max(h2D, hEuclid)) / EnvXXXCfg.nominalvel_mpersecs);
 }
 
 int EnvironmentXXXLAT::GetStartHeuristic(int stateID)

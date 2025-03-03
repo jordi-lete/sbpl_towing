@@ -504,10 +504,6 @@ protected:
     const double F1;
     const double F2;
 
-    // std::unordered_map<int, TrailerState> trailerStates;
-    // std::unordered_map<int, TrailerState> trailerStatesForPlot;
-    // std::map<int, int> stateParents;
-    // std::map<StateTransitionKey, TrailerState> trailerTransitions;
     std::unordered_map<int, PathHistory> stateToPathHistory;
 
     //2D search for heuristic computations
@@ -654,8 +650,6 @@ public:
                           std::vector<EnvXXXLATAction_t*>* actionindV = NULL);
     virtual void GetSuccsOfBestPath(int SourceStateID, std::vector<int>* SuccIDV, std::vector<int>* CostV,
                           std::vector<EnvXXXLATAction_t*>* actionindV = NULL);
-    // virtual void GetSuccsForPlot(int SourceStateID, std::vector<int>* SuccIDV, std::vector<int>* CostV,
-    //                       std::vector<EnvXXXLATAction_t*>* actionindV = NULL);
 
     virtual void GetLazySuccs(int SourceStateID, std::vector<int>* SuccIDV, std::vector<int>* CostV, std::vector<bool>* isTrueCost, std::vector<EnvXXXLATAction_t*>* actionindV = NULL);
     virtual void GetSuccsWithUniqueIds(int SourceStateID, std::vector<int>* SuccIDV, std::vector<int>* CostV, std::vector<EnvXXXLATAction_t*>* actionindV = NULL);
@@ -711,9 +705,6 @@ public:
     virtual void PrintVars() { }
 
     const EnvXXXLATHashEntry_t* GetStateEntry(int state_id) const;
-    // virtual void SetStateParent(int stateID, int parentID);
-    // virtual int GetStateParent(int stateID);
-    // virtual void ClearStateParents();
 
 protected:
     //hash table of size x_size*y_size. Maps from coords to stateId

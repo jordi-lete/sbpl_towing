@@ -7,9 +7,18 @@ set(SBPL_MINOR_VERSION 3)
 set(SBPL_PATCH_VERSION 1)
 set(SBPL_VERSION ${SBPL_MAJOR_VERSION}.${SBPL_MINOR_VERSION}.${SBPL_PATCH_VERSION})
 
-set(CMAKE_BUILD_TYPE Release)
+set(CMAKE_BUILD_TYPE Debug)
 
-include_directories(src/include)
+find_package(catkin REQUIRED
+  roscpp
+)
+
+include_directories(
+  src/include
+  ${catkin_INCLUDE_DIRS}  
+)
+
+add_definitions(-DROS)
 
 add_library(sbpl SHARED
   src/discrete_space_information/environment_nav2D.cpp
@@ -33,6 +42,8 @@ add_library(sbpl SHARED
   src/utils/2Dgridsearch.cpp
   src/utils/config.cpp
   )
+
+target_link_libraries(sbpl ${catkin_LIBRARIES})
 
 set(SBPL_INCLUDE_DIR "${CMAKE_INSTALL_PREFIX}/include")
 set(SBPL_LIB_DIR "${CMAKE_INSTALL_PREFIX}/lib")

@@ -65,7 +65,7 @@ public:
         if (PlannerSpecificData != NULL) {
             const char* msg = "ERROR: state deletion: planner specific data is not deleted";
             SBPL_FPRINTF(stderr, "%s\n", msg);
-            throw SBPL_Exception(msg);
+            // throw SBPL_Exception(msg);
         }
     }
 
@@ -102,7 +102,7 @@ public:
         if (PlannerSpecificData != NULL) {
             const char* msg = "ERROR: state deletion: planner specific data is not deleted";
             SBPL_FPRINTF(stderr, "%s\n", msg);
-            throw SBPL_Exception(msg);
+            // throw SBPL_Exception(msg);
         }
     }
 

@@ -1469,9 +1469,9 @@ void EnvironmentNAVXYTHETALATTICE::InitializeEnvConfig(std::vector<SBPL_xytheta_
             EnvNAVXYTHETALATCfg.cellsize_m);
     SBPL_PRINTF("number of cells in footprint of the robot = %d\n", (unsigned int)footprint.size());
 
-    for (std::vector<sbpl_2Dcell_t>::iterator it = footprint.begin(); it != footprint.end(); ++it) {
-        SBPL_PRINTF("Footprint cell at (%d, %d)\n", it->x, it->y);
-    }
+    // for (std::vector<sbpl_2Dcell_t>::iterator it = footprint.begin(); it != footprint.end(); ++it) {
+    //     SBPL_PRINTF("Footprint cell at (%d, %d)\n", it->x, it->y);
+    // }
 
 #if DEBUG
     SBPL_FPRINTF(fDeb, "footprint cells (size=%d):\n", (int)footprint.size());

@@ -34,6 +34,7 @@
 #include <vector>
 #include <sbpl/config.h>
 #include <sbpl/sbpl_exception.h>
+#include <sbpl/utils/utils.h>
 
 class CMDPSTATE;
 struct MDPConfig;
@@ -68,6 +69,15 @@ public:
      * \brief debugging file
      */
     FILE* fDeb;
+
+    virtual void GetPredsofChangedEdges(const std::vector<nav2dcell_t>* changedcellsV, std::vector<int>* preds_of_changededgesIDV){
+        throw SBPL_Exception("ERROR: GetPredsofChangedEdges is not implemented for this environment");
+    };
+
+    virtual void GetSuccsofChangedEdges(const std::vector<nav2dcell_t>* changedcellsV, std::vector<int>* succs_of_changededgesIDV){
+        throw SBPL_Exception("ERROR: GetPredsofChangedEdges is not implemented for this environment");
+    };
+
 
     /**
      * \brief initialization environment from file (see .cfg files for examples)

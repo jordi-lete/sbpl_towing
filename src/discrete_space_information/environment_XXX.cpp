@@ -1978,6 +1978,10 @@ bool EnvironmentXXXLATTICE::InitializeEnv(
     EnvXXXCfg.StartTheta1 = starttheta1;
     EnvXXXCfg.StartTheta2 = starttheta2;
     EnvXXXCfg.EndTheta_rad = goaltheta;
+    SBPL_INFO("Setting goal tolerance");
+    EnvXXXCfg.goaltol_x = goaltol_x;
+    EnvXXXCfg.goaltol_y = goaltol_y;
+    EnvXXXCfg.goaltol_theta = goaltol_theta;
 
     // TODO - need to set the tolerance as well
 
@@ -2946,8 +2950,10 @@ void EnvironmentXXXLAT::GetSuccs(
     }
 
     // goal state should be absorbing
-    if (SourceStateID == EnvXXXLAT.goalstateid) return;
-
+    // if (SourceStateID == EnvXXXLAT.goalstateid) return;
+    if (isGoal(SourceStateID)) {
+        return;
+    }
     // get X, Y for the state
     EnvXXXLATHashEntry_t* HashEntry = StateID2CoordTable[SourceStateID];
 
@@ -3061,7 +3067,10 @@ void EnvironmentXXXLAT::GetSuccsOfBestPath(
     }
 
     // goal state should be absorbing
-    if (SourceStateID == EnvXXXLAT.goalstateid) return;
+    // if (SourceStateID == EnvXXXLAT.goalstateid) return;
+    if (isGoal(SourceStateID)) {
+        return;
+    }
 
     // get X, Y for the state
     EnvXXXLATHashEntry_t* HashEntry = StateID2CoordTable[SourceStateID];
@@ -3645,7 +3654,25 @@ void EnvironmentXXXLAT::GetLazySuccsWithUniqueIds(
 
 bool EnvironmentXXXLAT::isGoal(int id)
 {
-    return EnvXXXLAT.goalstateid == id;
+    if (id<0 || id>=StateID2CoordTable.size() || EnvXXXLAT.goalstateid < 0 || EnvXXXLAT.goalstateid >= StateID2CoordTable.size()) {
+        ROS_ERROR("Invalid state ids in Goal check");
+        return false;
+    }
+    // Add goal tolerance
+    EnvXXXLATHashEntry_t* PoseHash = StateID2CoordTable[id];
+    EnvXXXLATHashEntry_t* GoalHash = StateID2CoordTable[EnvXXXLAT.goalstateid];
+    if (!PoseHash || !GoalHash) {
+        ROS_ERROR("Null hash entries in isGoal");
+        return false;
+    }
+    int tol_x = CONTXY2DISC(EnvXXXCfg.goaltol_x, EnvXXXCfg.cellsize_m);
+    int tol_y = CONTXY2DISC(EnvXXXCfg.goaltol_y, EnvXXXCfg.cellsize_m);
+    int tol_theta = ContTheta2DiscNew(EnvXXXCfg.goaltol_theta);
+    // SBPL_INFO("tolerances: %f %d", EnvXXXCfg.goaltol_theta, tol_theta);
+    return (fabs(PoseHash->X - GoalHash->X) <= tol_x &&
+            fabs(PoseHash->Y - GoalHash->Y) <= tol_y &&
+            fabs(PoseHash->Theta - GoalHash->Theta) <= tol_theta);
+    // return EnvXXXLAT.goalstateid == id;
 }
 
 void EnvironmentXXXLAT::GetLazyPreds(

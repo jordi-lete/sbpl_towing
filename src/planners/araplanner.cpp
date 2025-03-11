@@ -377,6 +377,19 @@ int ARAPlanner::ImprovePath(ARASearchStateSpace_t* pSearchStateSpace, double Max
         //get the state
         state = (ARAState*)pSearchStateSpace->heap->deleteminheap();
 
+        if (environment_->isGoal(state->MDPstate->StateID)) {
+            searchgoalstate->g = state->g;
+            searchgoalstate->bestpredstate = state->bestpredstate;
+            searchgoalstate->bestnextstate = state->bestnextstate;
+
+            if (searchgoalstate->MDPstate->StateID != state->MDPstate->StateID) {
+                pSearchStateSpace->searchgoalstate = state->MDPstate;
+            }
+
+            goalkey.key[0] = state->g;
+            break;
+        }
+
 #if DEBUG
         SBPL_FPRINTF(fDeb, "expanding state(%d): h=%d g=%u key=%u v=%u iterc=%d callnuma=%d expands=%d (g(goal)=%u)\n",
                      state->MDPstate->StateID, state->h, state->g, state->g+(int)(pSearchStateSpace->eps*state->h),
@@ -442,7 +455,7 @@ int ARAPlanner::ImprovePath(ARASearchStateSpace_t* pSearchStateSpace, double Max
         SBPL_PRINTF("solution does not exist: search exited because heap is empty\n");
         retv = 0;
     }
-    else if (!pSearchStateSpace->heap->emptyheap() && goalkey > minkey) {
+    else if (!pSearchStateSpace->heap->emptyheap() && goalkey > minkey && !environment_->isGoal(state->MDPstate->StateID)) {
         SBPL_PRINTF("search exited because it ran out of time\n");
         retv = 2;
     }

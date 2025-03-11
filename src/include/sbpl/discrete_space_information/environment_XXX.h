@@ -148,6 +148,9 @@ struct EnvXXXLATConfig_t
     int EndX_c;
     int EndY_c;
     int EndTheta;
+    double goaltol_x;
+    double goaltol_y;
+    double goaltol_theta;
     unsigned char** Grid2D;
 
     std::vector<double> ThetaDirs;

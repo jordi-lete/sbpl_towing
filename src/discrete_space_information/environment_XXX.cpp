@@ -83,7 +83,7 @@ EnvironmentXXXLATTICE::EnvironmentXXXLATTICE()
 
 EnvironmentXXXLATTICE::~EnvironmentXXXLATTICE()
 {
-    SBPL_PRINTF("destroying XYTHETALATTICE\n");
+    SBPL_WARN("destroying XYTHETALATTICE\n");
     if (grid2Dsearchfromstart != NULL) {
         delete grid2Dsearchfromstart;
     }
@@ -2459,8 +2459,9 @@ void EnvironmentXXXLAT::ConvertStateIDPathintoXYThetaPath(
 
         auto targetHistoryIt = stateToPathHistory.find(targetID);
         if (targetHistoryIt == stateToPathHistory.end()) {
-            SBPL_ERROR("Path history not fund for state %d", targetID);
-            throw SBPL_Exception("ERROR: path history not found");
+            SBPL_ERROR("Path history not found for state %d", targetID);
+            return;
+            // throw SBPL_Exception("ERROR: path history not found");
         }
         const PathHistory& currentHistory = targetHistoryIt->second;
         TrailerState currentTrailer = currentHistory.currentTrailer;
@@ -2473,8 +2474,8 @@ void EnvironmentXXXLAT::ConvertStateIDPathintoXYThetaPath(
         SuccIDV.clear();
         CostV.clear();
         actionV.clear();
-        // GetSuccs(sourceID, &SuccIDV, &CostV, &actionV);
-        GetSuccsOfBestPath(sourceID, &SuccIDV, &CostV, &actionV);
+        GetSuccs(sourceID, &SuccIDV, &CostV, &actionV);
+        // GetSuccsOfBestPath(sourceID, &SuccIDV, &CostV, &actionV);
 
         int bestcost = INFINITECOST;
         int bestsind = -1;
@@ -2502,6 +2503,7 @@ void EnvironmentXXXLAT::ConvertStateIDPathintoXYThetaPath(
             GetCoordFromState(targetID, targetx_c, targety_c, targettheta_c);
             SBPL_PRINTF("%d %d %d -> %d %d %d\n", sourcex_c, sourcey_c, sourcetheta_c, targetx_c, targety_c, targettheta_c);
             SBPL_PRINTF("%.3f %.3f %.3f -> %.3f %.3f %.3f\n", DISCXY2CONT(sourcex_c, EnvXXXCfg.cellsize_m), DISCXY2CONT(sourcey_c, EnvXXXCfg.cellsize_m), DiscTheta2ContNew(sourcetheta_c), DISCXY2CONT(targetx_c, EnvXXXCfg.cellsize_m), DISCXY2CONT(targety_c, EnvXXXCfg.cellsize_m), DiscTheta2ContNew(targettheta_c));
+            continue;
             // throw SBPL_WARN("ERROR: successor not found for transition");
         }
 
@@ -2635,8 +2637,17 @@ int EnvironmentXXXLAT::SetStart(double x_m, double y_m, double theta_rad)
 // returns the stateid if success, and -1 otherwise
 void EnvironmentXXXLAT::SetTrailerStart(double theta1_rad, double theta2_rad)
 {
-    EnvXXXCfg.StartTheta1 = theta1_rad;
-    EnvXXXCfg.StartTheta2 = theta2_rad;
+    double TrailerX = DISCXY2CONT(EnvXXXCfg.StartX_c, EnvXXXCfg.cellsize_m) - R0*cos(DiscTheta2ContNew(EnvXXXCfg.StartTheta)) - F1*cos(theta1_rad) - (F2/2)*cos(theta2_rad);
+    double TrailerY = DISCXY2CONT(EnvXXXCfg.StartY_c, EnvXXXCfg.cellsize_m) - R0*sin(DiscTheta2ContNew(EnvXXXCfg.StartTheta)) - F1*sin(theta1_rad) - (F2/2)*sin(theta2_rad);
+    if (IsValidTrailerConfiguration(TrailerX, TrailerY, theta2_rad)) {
+        EnvXXXCfg.StartTheta1 = theta1_rad;
+        EnvXXXCfg.StartTheta2 = theta2_rad;
+        SBPL_PRINTF("valid trailer pose");
+    } else {
+        EnvXXXCfg.StartTheta1 = DiscTheta2ContNew(EnvXXXCfg.StartTheta);
+        EnvXXXCfg.StartTheta2 = DiscTheta2ContNew(EnvXXXCfg.StartTheta);
+        SBPL_ERROR("Non-valid trailer pose");
+    }
 }
 
 void EnvironmentXXXLAT::PrintState(
@@ -2876,6 +2887,7 @@ bool EnvironmentXXXLATTICE::calculateTrailerTransition(double startX, double sta
         double phi2 = calculateContAngleDiff(theta2, theta1);
 
         double v1 = v*cos(phi1) + R0*w*sin(phi1);
+        // double dtheta1 = (v*sin(phi1) - R0*w*cos(phi1))/F1;
         double dtheta1 = (v*sin(phi1) - R0*w*cos(phi1))/F1;
         double dtheta2 = v1*sin(phi2)/F2;
 
@@ -2892,6 +2904,18 @@ bool EnvironmentXXXLATTICE::calculateTrailerTransition(double startX, double sta
     endTrailer.theta2 = theta2;
     endTrailer.x = endX - R0*cos(endTheta) - F1*cos(theta1) - (F2/2)*cos(theta2);
     endTrailer.y = endY - R0*sin(endTheta) - F1*sin(theta1) - (F2/2)*sin(theta2);
+
+    // If we are at start state do a basic check
+    // We assume the trailer does not start at an invalid state
+    if (stateToPathHistory.find(EnvXXXLAT.startstateid) != stateToPathHistory.end() &&
+        stateToPathHistory[EnvXXXLAT.startstateid].positions.size() == 1 &&
+        startX == stateToPathHistory[EnvXXXLAT.startstateid].positions[0].x &&
+        startY == stateToPathHistory[EnvXXXLAT.startstateid].positions[0].y &&
+        startTheta == stateToPathHistory[EnvXXXLAT.startstateid].positions[0].theta) {
+            int disc_x = CONTXY2DISC(endTrailer.x, EnvXXXCfg.cellsize_m);
+            int disc_y = CONTXY2DISC(endTrailer.y, EnvXXXCfg.cellsize_m);
+            return IsValidCell(disc_x, disc_y) && EnvXXXCfg.Grid2D[disc_x][disc_y] < 100;
+    }
 
     return IsValidTrailerConfiguration(endTrailer.x, endTrailer.y, endTrailer.theta2);
 }

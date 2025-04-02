@@ -2634,7 +2634,7 @@ int EnvironmentXXXLAT::SetStart(double x_m, double y_m, double theta_rad)
     return EnvXXXLAT.startstateid;
 }
 
-// returns the stateid if success, and -1 otherwise
+// We set the initial trailer position based on the trailer localisation if valid, otherwise we fall back onto a default value (directly behind robot)
 void EnvironmentXXXLAT::SetTrailerStart(double theta1_rad, double theta2_rad)
 {
     double TrailerX = DISCXY2CONT(EnvXXXCfg.StartX_c, EnvXXXCfg.cellsize_m) - R0*cos(DiscTheta2ContNew(EnvXXXCfg.StartTheta)) - F1*cos(theta1_rad) - (F2/2)*cos(theta2_rad);
@@ -2646,7 +2646,7 @@ void EnvironmentXXXLAT::SetTrailerStart(double theta1_rad, double theta2_rad)
     } else {
         EnvXXXCfg.StartTheta1 = DiscTheta2ContNew(EnvXXXCfg.StartTheta);
         EnvXXXCfg.StartTheta2 = DiscTheta2ContNew(EnvXXXCfg.StartTheta);
-        SBPL_ERROR("Non-valid trailer pose");
+        SBPL_PRINTF("Non-valid trailer pose");
     }
 }
 
@@ -2834,6 +2834,7 @@ double EnvironmentXXXLAT::calculateContAngleDiff(double startangle, double endan
     return diff;
 }
 
+// This function gets the end position of the trailer based on the full path the robot has taken
 bool EnvironmentXXXLATTICE::calculateTrailerFromPath(
     const std::vector<PathState>& path,
     TrailerState& finalTrailer) 
@@ -2866,6 +2867,7 @@ bool EnvironmentXXXLATTICE::calculateTrailerFromPath(
     return true;
 }
 
+// Here we use the kinematics equations to work out where the trailer will end up based on the robot action
 bool EnvironmentXXXLATTICE::calculateTrailerTransition(double startX, double startY, double startTheta, double endX, double endY, double endTheta,
                                                     double time, const TrailerState& startTrailer, TrailerState& endTrailer) {
     double t = time;
@@ -2882,6 +2884,7 @@ bool EnvironmentXXXLATTICE::calculateTrailerTransition(double startX, double sta
     double theta1 = startTrailer.theta1;
     double theta2 = startTrailer.theta2;
 
+    // We break it down into smaller paths to increase accuracy of the calculation (similar to numerical integration methods)
     for (int i = 0; i < steps; i++) {
         double phi1 = calculateContAngleDiff(theta1, theta);
         double phi2 = calculateContAngleDiff(theta2, theta1);
@@ -2895,9 +2898,6 @@ bool EnvironmentXXXLATTICE::calculateTrailerTransition(double startX, double sta
         theta1 += dtheta1*dt;
         theta2 += dtheta2*dt;
 
-        // theta = normalizeAngle(theta);
-        // theta1 = normalizeAngle(theta1);
-        // theta2 = normalizeAngle(theta2);
     }
 
     endTrailer.theta1 = theta1;
@@ -2907,19 +2907,21 @@ bool EnvironmentXXXLATTICE::calculateTrailerTransition(double startX, double sta
 
     // If we are at start state do a basic check
     // We assume the trailer does not start at an invalid state
-    if (stateToPathHistory.find(EnvXXXLAT.startstateid) != stateToPathHistory.end() &&
-        stateToPathHistory[EnvXXXLAT.startstateid].positions.size() == 1 &&
-        startX == stateToPathHistory[EnvXXXLAT.startstateid].positions[0].x &&
-        startY == stateToPathHistory[EnvXXXLAT.startstateid].positions[0].y &&
-        startTheta == stateToPathHistory[EnvXXXLAT.startstateid].positions[0].theta) {
-            int disc_x = CONTXY2DISC(endTrailer.x, EnvXXXCfg.cellsize_m);
-            int disc_y = CONTXY2DISC(endTrailer.y, EnvXXXCfg.cellsize_m);
-            return IsValidCell(disc_x, disc_y) && EnvXXXCfg.Grid2D[disc_x][disc_y] < 100;
-    }
+    // if (stateToPathHistory.find(EnvXXXLAT.startstateid) != stateToPathHistory.end() &&
+    //     stateToPathHistory[EnvXXXLAT.startstateid].positions.size() == 1 &&
+    //     startX == stateToPathHistory[EnvXXXLAT.startstateid].positions[0].x &&
+    //     startY == stateToPathHistory[EnvXXXLAT.startstateid].positions[0].y &&
+    //     startTheta == stateToPathHistory[EnvXXXLAT.startstateid].positions[0].theta) {
+    //         int disc_x = CONTXY2DISC(endTrailer.x, EnvXXXCfg.cellsize_m);
+    //         int disc_y = CONTXY2DISC(endTrailer.y, EnvXXXCfg.cellsize_m);
+    //         return IsValidCell(disc_x, disc_y) && EnvXXXCfg.Grid2D[disc_x][disc_y] < 100;
+    // }
 
     return IsValidTrailerConfiguration(endTrailer.x, endTrailer.y, endTrailer.theta2);
 }
 
+// We check if the resulting trailer position is valid based on whether the centre point of the trailer is inscribed (less than the footprint width from obstacles)
+// and if any of the four footprint corners are in collision
 bool EnvironmentXXXLATTICE::IsValidTrailerConfiguration(double x, double y, double theta) {
     int disc_x = CONTXY2DISC(x, EnvXXXCfg.cellsize_m);
     int disc_y = CONTXY2DISC(y, EnvXXXCfg.cellsize_m);
@@ -2944,11 +2946,40 @@ bool EnvironmentXXXLATTICE::IsValidTrailerConfiguration(double x, double y, doub
         if (!IsValidCell(poly_x, poly_y)) {
             return false;
         }
-        if (EnvXXXCfg.Grid2D[poly_x][poly_y] >= EnvXXXCfg.cost_inscribed_thresh) {
+        if (EnvXXXCfg.Grid2D[poly_x][poly_y] >= EnvXXXCfg.obsthresh) {
             return false;
         }
     }
     return true;
+}
+
+// We add a cost based on the trailer position. If any of the footprint corners are in the inflation region there is a cost associated (otherwise 0 cost)
+int EnvironmentXXXLATTICE::GetTrailerCost(TrailerState& endTrailer) {
+    // We already checked isValidTrailerConfig so no need to do that here
+
+    double x = endTrailer.x;
+    double y = endTrailer.y;
+    double theta = endTrailer.theta2;
+    int trailer_cost = 0;
+
+    std::vector<sbpl_2Dpt_t> transformedPolygon;
+    transformedPolygon.resize(EnvXXXCfg.TrailerPolygon.size());
+
+    for (int i = 0; i < EnvXXXCfg.TrailerPolygon.size(); i++) {
+        transformedPolygon[i].x = x + EnvXXXCfg.TrailerPolygon[i].x * cos(theta) - EnvXXXCfg.TrailerPolygon[i].y * sin(theta);
+        transformedPolygon[i].y = y + EnvXXXCfg.TrailerPolygon[i].x * sin(theta) + EnvXXXCfg.TrailerPolygon[i].y * cos(theta);
+    }
+
+    int size = 0;
+    for (const auto& pt : transformedPolygon) {
+        int poly_x = CONTXY2DISC(pt.x, EnvXXXCfg.cellsize_m);
+        int poly_y = CONTXY2DISC(pt.y, EnvXXXCfg.cellsize_m);
+        if (EnvXXXCfg.Grid2D[poly_x][poly_y] > 0) {
+            trailer_cost += EnvXXXCfg.Grid2D[poly_x][poly_y] * 5; // Costmap cost ranges from 0 to 254 (lethal) so I'm scaling by 5 to increase the punishment of going into the inflation region
+        }
+    }
+    // SBPL_WARN("Trailer cost: %d", trailer_cost);
+    return trailer_cost;
 }
 
 void EnvironmentXXXLAT::GetSuccs(
@@ -2988,7 +3019,7 @@ void EnvironmentXXXLAT::GetSuccs(
 
     PathHistory currentHistory;
     TrailerState currentTrailer;
-    // If we are at the start then set the trailer pose to theta1 = 0, theta2 = 0
+    // if we are at the start then initialise the path and trailer state, otherwise look up the path history
     if (SourceStateID == EnvXXXLAT.startstateid) {
         PathState startState = {
             currentX,
@@ -3037,6 +3068,7 @@ void EnvironmentXXXLAT::GetSuccs(
         cont_newY = DISCXY2CONT(newY, EnvXXXCfg.cellsize_m);
         cont_newTheta = DiscTheta2ContNew(newTheta);
 
+        // Add the new robot position to the path history
         PathHistory newHistory = currentHistory;
         PathState newState = {
             cont_newX,
@@ -3046,11 +3078,14 @@ void EnvironmentXXXLAT::GetSuccs(
         };
         newHistory.positions.push_back(newState);
 
+        // Find the resulting trailer state after the action is taken - if invalid we discard this action
         TrailerState newTrailer;
         if (!calculateTrailerFromPath(newHistory.positions, newTrailer)) {
             continue;
         }
         newHistory.currentTrailer = newTrailer;
+
+        int trailer_cost = GetTrailerCost(newTrailer); 
         
         EnvXXXLATHashEntry_t* OutHashEntry;
         if ((OutHashEntry = (this->*GetHashEntry)(newX, newY, newTheta)) == NULL) {
@@ -3061,7 +3096,9 @@ void EnvironmentXXXLAT::GetSuccs(
         stateToPathHistory[OutHashEntry->stateID] = std::move(newHistory);
 
         SuccIDV->push_back(OutHashEntry->stateID);
-        CostV->push_back(cost);
+        CostV->push_back(cost + trailer_cost);
+        // CostV->push_back(cost);
+        // SBPL_WARN("Cost: %d", cost);
         if (actionV != NULL) {
             actionV->push_back(nav3daction);
         }
@@ -3072,68 +3109,6 @@ void EnvironmentXXXLAT::GetSuccs(
 #endif
 }
 
-void EnvironmentXXXLAT::GetSuccsOfBestPath(
-    int SourceStateID,
-    std::vector<int>* SuccIDV,
-    std::vector<int>* CostV,
-    std::vector<EnvXXXLATAction_t*>* actionV)
-{
-    int aind;
-
-    // clear the successor array
-    SuccIDV->clear();
-    CostV->clear();
-    SuccIDV->reserve(EnvXXXCfg.actionwidth);
-    CostV->reserve(EnvXXXCfg.actionwidth);
-    if (actionV != NULL) {
-        actionV->clear();
-        actionV->reserve(EnvXXXCfg.actionwidth);
-    }
-
-    // goal state should be absorbing
-    // if (SourceStateID == EnvXXXLAT.goalstateid) return;
-    if (isGoal(SourceStateID)) {
-        return;
-    }
-
-    // get X, Y for the state
-    EnvXXXLATHashEntry_t* HashEntry = StateID2CoordTable[SourceStateID];
-
-    // iterate through actions
-    for (aind = 0; aind < EnvXXXCfg.actionwidth; aind++) {
-        EnvXXXLATAction_t* nav3daction = &EnvXXXCfg.ActionsV[(unsigned int)HashEntry->Theta][aind];
-        int newX = HashEntry->X + nav3daction->dX;
-        int newY = HashEntry->Y + nav3daction->dY;
-        int newTheta = normalizeDiscAngle(nav3daction->endtheta);
-
-        // SBPL_DEBUG("Checking successor: current(%d,%d) -> new(%d,%d)", HashEntry->X, HashEntry->Y, newX, newY);
-
-        // skip the invalid cells
-        if (!IsValidCell(newX, newY)) {
-            SBPL_DEBUG("Invalid cell at (%d,%d)", newX, newY);
-            continue;
-        }
-
-        // get cost
-        int cost = GetActionCost(HashEntry->X, HashEntry->Y, HashEntry->Theta, nav3daction);
-        if (cost >= INFINITECOST) {
-            SBPL_DEBUG("Infinite cost for action %d", aind);
-            continue;
-        }
-        
-        EnvXXXLATHashEntry_t* OutHashEntry;
-        if ((OutHashEntry = (this->*GetHashEntry)(newX, newY, newTheta)) == NULL) {
-            // have to create a new entry
-            OutHashEntry = (this->*CreateNewHashEntry)(newX, newY, newTheta);
-        }
-
-        SuccIDV->push_back(OutHashEntry->stateID);
-        CostV->push_back(cost);
-        if (actionV != NULL) {
-            actionV->push_back(nav3daction);
-        }
-    }
-}
 
 void EnvironmentXXXLAT::GetPreds(
     int TargetStateID,
@@ -3676,6 +3651,8 @@ void EnvironmentXXXLAT::GetLazySuccsWithUniqueIds(
     GetLazySuccs(SourceStateID, SuccIDV, CostV, isTrueCost, actionV);
 }
 
+// I adjusted the isGoal function to allow a goal tolerance. This is needed for the trailer planner as motion pritive restricts turning on the spot and short motions
+// this makes reaching the exact cell position and orientation (previous requirement) much more difficult
 bool EnvironmentXXXLAT::isGoal(int id)
 {
     if (id<0 || id>=StateID2CoordTable.size() || EnvXXXLAT.goalstateid < 0 || EnvXXXLAT.goalstateid >= StateID2CoordTable.size()) {
@@ -3692,7 +3669,7 @@ bool EnvironmentXXXLAT::isGoal(int id)
     int tol_x = CONTXY2DISC(EnvXXXCfg.goaltol_x, EnvXXXCfg.cellsize_m);
     int tol_y = CONTXY2DISC(EnvXXXCfg.goaltol_y, EnvXXXCfg.cellsize_m);
     int tol_theta = ContTheta2DiscNew(EnvXXXCfg.goaltol_theta);
-    // SBPL_INFO("tolerances: %f %d", EnvXXXCfg.goaltol_theta, tol_theta);
+
     return (fabs(PoseHash->X - GoalHash->X) <= tol_x &&
             fabs(PoseHash->Y - GoalHash->Y) <= tol_y &&
             fabs(PoseHash->Theta - GoalHash->Theta) <= tol_theta);

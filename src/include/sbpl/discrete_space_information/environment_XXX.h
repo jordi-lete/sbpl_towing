@@ -44,7 +44,7 @@
 
 //eight-connected grid
 #define XXXLAT_DXYWIDTH 8
-#define EnvXXXLAT_DEFAULTOBSTHRESH 254	//see explanation of the value below
+#define EnvXXXLAT_DEFAULTOBSTHRESH 254
 //maximum number of states for storing them into lookup (as opposed to hash)
 #define SBPL_XXXLAT_MAXSTATESFORLOOKUP 100000000
 //definition of theta orientations

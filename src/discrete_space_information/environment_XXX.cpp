@@ -49,10 +49,9 @@ static long int checks = 0;
 #define XYTHETA2INDEX(X,Y,THETA) (THETA + X*EnvXXXCfg.NumThetaDirs + \
                                   Y*EnvXXXCfg.EnvWidth_c*EnvXXXCfg.NumThetaDirs)
 
+#define OFFSET 0.49 // an offset for the trailer bed centre point for two wheel trailers
+
 EnvironmentXXXLATTICE::EnvironmentXXXLATTICE()
-    : R0(0.56), // Distance from centre of robot to towbar
-    F1(1.21), // Distance from towbar to front trailer wheel axle
-    F2(0.87) // Distance from front trailer wheel axle to rear trailer wheel axle  
 {
     EnvXXXCfg.obsthresh = EnvXXXLAT_DEFAULTOBSTHRESH;
     // the value that pretty much makes it disabled
@@ -214,11 +213,16 @@ void EnvironmentXXXLATTICE::SetConfiguration(
         }
     }
     else {
+        int count = 0;
         for (int y = 0; y < EnvXXXCfg.EnvHeight_c; y++) {
             for (int x = 0; x < EnvXXXCfg.EnvWidth_c; x++) {
                 EnvXXXCfg.Grid2D[x][y] = mapdata[x + y * width];
+                if (EnvXXXCfg.Grid2D[x][y] >= 254) {
+                    count++;
+                }
             }
         }
+        SBPL_WARN("254 plus count: %d", count);
     }
 }
 
@@ -454,14 +458,19 @@ void EnvironmentXXXLATTICE::ReadConfiguration(FILE* fCfg)
     if (fscanf(fCfg, "%s", sTemp) != 1) {
         throw SBPL_Exception("ERROR: ran out of env file early");
     }
+    int count = 0;
     for (y = 0; y < EnvXXXCfg.EnvHeight_c; y++) {
         for (x = 0; x < EnvXXXCfg.EnvWidth_c; x++) {
             if (fscanf(fCfg, "%d", &dTemp) != 1) {
                 throw SBPL_Exception("ERROR: incorrect format of config file");
             }
             EnvXXXCfg.Grid2D[x][y] = dTemp;
+            if (EnvXXXCfg.Grid2D[x][y] >= 254) {
+                count++;
+            }
         }
     }
+    SBPL_WARN("254 Plus Count: %d", count);
 }
 
 bool EnvironmentXXXLATTICE::ReadinCell(
@@ -1941,7 +1950,8 @@ bool EnvironmentXXXLATTICE::InitializeEnv(
             cellsize_m,
             nominalvel_mpersecs, timetoturn45degsinplace_secs,
             obsthresh,
-            sMotPrimFile);
+            sMotPrimFile,
+            params.R0, params.F1, params.F2, params.num_pivots);
 }
 
 bool EnvironmentXXXLATTICE::InitializeEnv(
@@ -1957,7 +1967,8 @@ bool EnvironmentXXXLATTICE::InitializeEnv(
     double nominalvel_mpersecs,
     double timetoturn45degsinplace_secs,
     unsigned char obsthresh,
-    const char* sMotPrimFile)
+    const char* sMotPrimFile,
+    double R0, double F1, double F2, int num_pivots)
 {
     SBPL_PRINTF("env: initialize with width=%d height=%d start=%.3f %.3f %.3f "
                 "goalx=%.3f %.3f %.3f cellsize=%.3f nomvel=%.3f timetoturn=%.3f, obsthresh=%d\n",
@@ -1982,6 +1993,10 @@ bool EnvironmentXXXLATTICE::InitializeEnv(
     EnvXXXCfg.goaltol_x = goaltol_x;
     EnvXXXCfg.goaltol_y = goaltol_y;
     EnvXXXCfg.goaltol_theta = goaltol_theta;
+    EnvXXXCfg.R0 = R0;
+    EnvXXXCfg.F1 = F1;
+    EnvXXXCfg.F2 = F2;
+    EnvXXXCfg.num_pivots = num_pivots;
 
     // TODO - need to set the tolerance as well
 
@@ -2152,12 +2167,17 @@ bool EnvironmentXXXLATTICE::UpdateCost(
 bool EnvironmentXXXLATTICE::SetMap(const unsigned char* mapdata)
 {
     int xind = -1, yind = -1;
+    int count = 0;
 
     for (xind = 0; xind < EnvXXXCfg.EnvWidth_c; xind++) {
         for (yind = 0; yind < EnvXXXCfg.EnvHeight_c; yind++) {
             EnvXXXCfg.Grid2D[xind][yind] = mapdata[xind + yind * EnvXXXCfg.EnvWidth_c];
+            if (EnvXXXCfg.Grid2D[xind][yind] >= 254) {
+                count++;
+            }
         }
     }
+    SBPL_WARN("[SetMap] 254 plus count: %d", count);
 
     bNeedtoRecomputeStartHeuristics = true;
     bNeedtoRecomputeGoalHeuristics = true;
@@ -2444,11 +2464,6 @@ void EnvironmentXXXLAT::ConvertStateIDPathintoXYThetaPath(
     xythetaPath->clear();
     trailerPath->clear();
 
-    // std::ofstream logFile("/home/opencav/Downloads/sbpl_trailerpose.log", std::ios::app);
-    // if (!logFile.is_open()) {
-    //     throw SBPL_Exception("ERROR: Could not open log for writing");
-    // }
-
 #if DEBUG
     SBPL_FPRINTF(fDeb, "converting stateid path into coordinates:\n");
 #endif
@@ -2475,7 +2490,6 @@ void EnvironmentXXXLAT::ConvertStateIDPathintoXYThetaPath(
         CostV.clear();
         actionV.clear();
         GetSuccs(sourceID, &SuccIDV, &CostV, &actionV);
-        // GetSuccsOfBestPath(sourceID, &SuccIDV, &CostV, &actionV);
 
         int bestcost = INFINITECOST;
         int bestsind = -1;
@@ -2539,9 +2553,6 @@ void EnvironmentXXXLAT::ConvertStateIDPathintoXYThetaPath(
             // store
             xythetaPath->push_back(intermpt);
 
-            // logFile << "Step " << ipind << " of primitive " << bestsind << "\n";
-            // logFile << "    Source State: x=" << currentX << ", y=" << currentY << ", theta=" << currentTheta << "\n";
-            // logFile << "    Target State: x=" << intermpt.x << ", y=" << intermpt.y << ", theta=" << intermpt.theta << "\n";
         }
         sbpl_xy_theta_pt_t trailer_pt;
         trailer_pt.x = currentTrailer.x;
@@ -2637,16 +2648,34 @@ int EnvironmentXXXLAT::SetStart(double x_m, double y_m, double theta_rad)
 // We set the initial trailer position based on the trailer localisation if valid, otherwise we fall back onto a default value (directly behind robot)
 void EnvironmentXXXLAT::SetTrailerStart(double theta1_rad, double theta2_rad)
 {
-    double TrailerX = DISCXY2CONT(EnvXXXCfg.StartX_c, EnvXXXCfg.cellsize_m) - R0*cos(DiscTheta2ContNew(EnvXXXCfg.StartTheta)) - F1*cos(theta1_rad) - (F2/2)*cos(theta2_rad);
-    double TrailerY = DISCXY2CONT(EnvXXXCfg.StartY_c, EnvXXXCfg.cellsize_m) - R0*sin(DiscTheta2ContNew(EnvXXXCfg.StartTheta)) - F1*sin(theta1_rad) - (F2/2)*sin(theta2_rad);
-    if (IsValidTrailerConfiguration(TrailerX, TrailerY, theta2_rad)) {
-        EnvXXXCfg.StartTheta1 = theta1_rad;
-        EnvXXXCfg.StartTheta2 = theta2_rad;
-        SBPL_PRINTF("valid trailer pose");
-    } else {
-        EnvXXXCfg.StartTheta1 = DiscTheta2ContNew(EnvXXXCfg.StartTheta);
-        EnvXXXCfg.StartTheta2 = DiscTheta2ContNew(EnvXXXCfg.StartTheta);
-        SBPL_PRINTF("Non-valid trailer pose");
+    double TrailerX, TrailerY;
+    int cost = 0;
+
+    if (EnvXXXCfg.num_pivots == 1) {
+        TrailerX = DISCXY2CONT(EnvXXXCfg.StartX_c, EnvXXXCfg.cellsize_m) - EnvXXXCfg.R0*cos(DiscTheta2ContNew(EnvXXXCfg.StartTheta)) - EnvXXXCfg.F1*cos(theta1_rad) + OFFSET*cos(theta1_rad);
+        TrailerY = DISCXY2CONT(EnvXXXCfg.StartY_c, EnvXXXCfg.cellsize_m) - EnvXXXCfg.R0*sin(DiscTheta2ContNew(EnvXXXCfg.StartTheta)) - EnvXXXCfg.F1*sin(theta1_rad) + OFFSET*sin(theta1_rad);
+        if (IsValidTrailerConfiguration(TrailerX, TrailerY, theta1_rad, cost)) {
+            EnvXXXCfg.StartTheta1 = theta1_rad;
+            EnvXXXCfg.StartTheta2 = theta1_rad;
+            SBPL_WARN("valid trailer pose");
+        } else {
+            EnvXXXCfg.StartTheta1 = DiscTheta2ContNew(EnvXXXCfg.StartTheta);
+            EnvXXXCfg.StartTheta2 = DiscTheta2ContNew(EnvXXXCfg.StartTheta);
+            SBPL_WARN("Non-valid trailer pose");
+        }
+    }
+    else {
+        TrailerX = DISCXY2CONT(EnvXXXCfg.StartX_c, EnvXXXCfg.cellsize_m) - EnvXXXCfg.R0*cos(DiscTheta2ContNew(EnvXXXCfg.StartTheta)) - EnvXXXCfg.F1*cos(theta1_rad) - (EnvXXXCfg.F2/2)*cos(theta2_rad);
+        TrailerY = DISCXY2CONT(EnvXXXCfg.StartY_c, EnvXXXCfg.cellsize_m) - EnvXXXCfg.R0*sin(DiscTheta2ContNew(EnvXXXCfg.StartTheta)) - EnvXXXCfg.F1*sin(theta1_rad) - (EnvXXXCfg.F2/2)*sin(theta2_rad);
+        if (IsValidTrailerConfiguration(TrailerX, TrailerY, theta2_rad, cost)) {
+            EnvXXXCfg.StartTheta1 = theta1_rad;
+            EnvXXXCfg.StartTheta2 = theta2_rad;
+            SBPL_WARN("valid trailer pose");
+        } else {
+            EnvXXXCfg.StartTheta1 = DiscTheta2ContNew(EnvXXXCfg.StartTheta);
+            EnvXXXCfg.StartTheta2 = DiscTheta2ContNew(EnvXXXCfg.StartTheta);
+            SBPL_WARN("Non-valid trailer pose");
+        }
     }
 }
 
@@ -2841,9 +2870,18 @@ bool EnvironmentXXXLATTICE::calculateTrailerFromPath(
 {
     if (path.size() < 2) return false;
 
+    double trailer_x, trailer_y;
+    if (EnvXXXCfg.num_pivots == 1) {
+        trailer_x = path[0].x - EnvXXXCfg.R0*cos(path[0].theta) - EnvXXXCfg.F1*cos(EnvXXXCfg.StartTheta1) + OFFSET*cos(EnvXXXCfg.StartTheta1);
+        trailer_y = path[0].y - EnvXXXCfg.R0*sin(path[0].theta) - EnvXXXCfg.F1*sin(EnvXXXCfg.StartTheta1) + OFFSET*sin(EnvXXXCfg.StartTheta1);
+    } else {
+        trailer_x = path[0].x - EnvXXXCfg.R0*cos(path[0].theta) - EnvXXXCfg.F1*cos(EnvXXXCfg.StartTheta1) - (EnvXXXCfg.F2/2)*cos(EnvXXXCfg.StartTheta2);
+        trailer_y = path[0].y - EnvXXXCfg.R0*sin(path[0].theta) - EnvXXXCfg.F1*sin(EnvXXXCfg.StartTheta1) - (EnvXXXCfg.F2/2)*sin(EnvXXXCfg.StartTheta2);
+    }
+
     TrailerState trailer(
-        path[0].x - R0*cos(path[0].theta) - F1*cos(EnvXXXCfg.StartTheta1) - (F2/2)*cos(EnvXXXCfg.StartTheta2),
-        path[0].y - R0*sin(path[0].theta) - F1*sin(EnvXXXCfg.StartTheta1) - (F2/2)*sin(EnvXXXCfg.StartTheta2),
+        trailer_x,
+        trailer_y,
         EnvXXXCfg.StartTheta1,
         EnvXXXCfg.StartTheta2
     );
@@ -2884,45 +2922,46 @@ bool EnvironmentXXXLATTICE::calculateTrailerTransition(double startX, double sta
     double theta1 = startTrailer.theta1;
     double theta2 = startTrailer.theta2;
 
+    const double R0 = EnvXXXCfg.R0;
+    const double F1 = EnvXXXCfg.F1;
+    const double F2 = EnvXXXCfg.F2;
+
     // We break it down into smaller paths to increase accuracy of the calculation (similar to numerical integration methods)
     for (int i = 0; i < steps; i++) {
         double phi1 = calculateContAngleDiff(theta1, theta);
-        double phi2 = calculateContAngleDiff(theta2, theta1);
-
-        double v1 = v*cos(phi1) + R0*w*sin(phi1);
         // double dtheta1 = (v*sin(phi1) - R0*w*cos(phi1))/F1;
         double dtheta1 = (v*sin(phi1) - R0*w*cos(phi1))/F1;
-        double dtheta2 = v1*sin(phi2)/F2;
-
         theta += w*dt;
         theta1 += dtheta1*dt;
-        theta2 += dtheta2*dt;
 
+        if (EnvXXXCfg.num_pivots == 2) {
+            double phi2 = calculateContAngleDiff(theta2, theta1);
+            double v1 = v*cos(phi1) + R0*w*sin(phi1);
+            double dtheta2 = v1*sin(phi2)/F2;
+            theta2 += dtheta2*dt;
+        } else {
+            theta2 = theta1;
+        }
+        
     }
 
     endTrailer.theta1 = theta1;
     endTrailer.theta2 = theta2;
-    endTrailer.x = endX - R0*cos(endTheta) - F1*cos(theta1) - (F2/2)*cos(theta2);
-    endTrailer.y = endY - R0*sin(endTheta) - F1*sin(theta1) - (F2/2)*sin(theta2);
 
-    // If we are at start state do a basic check
-    // We assume the trailer does not start at an invalid state
-    // if (stateToPathHistory.find(EnvXXXLAT.startstateid) != stateToPathHistory.end() &&
-    //     stateToPathHistory[EnvXXXLAT.startstateid].positions.size() == 1 &&
-    //     startX == stateToPathHistory[EnvXXXLAT.startstateid].positions[0].x &&
-    //     startY == stateToPathHistory[EnvXXXLAT.startstateid].positions[0].y &&
-    //     startTheta == stateToPathHistory[EnvXXXLAT.startstateid].positions[0].theta) {
-    //         int disc_x = CONTXY2DISC(endTrailer.x, EnvXXXCfg.cellsize_m);
-    //         int disc_y = CONTXY2DISC(endTrailer.y, EnvXXXCfg.cellsize_m);
-    //         return IsValidCell(disc_x, disc_y) && EnvXXXCfg.Grid2D[disc_x][disc_y] < 100;
-    // }
+    if (EnvXXXCfg.num_pivots == 1) {
+        endTrailer.x = endX - R0*cos(endTheta) - F1*cos(theta1) + OFFSET*cos(theta1);
+        endTrailer.y = endY - R0*sin(endTheta) - F1*sin(theta1) + OFFSET*sin(theta1);
+    } else {
+        endTrailer.x = endX - R0*cos(endTheta) - F1*cos(theta1) - (F2/2)*cos(theta2);
+        endTrailer.y = endY - R0*sin(endTheta) - F1*sin(theta1) - (F2/2)*sin(theta2);
+    }
 
-    return IsValidTrailerConfiguration(endTrailer.x, endTrailer.y, endTrailer.theta2);
+    return true;
 }
 
 // We check if the resulting trailer position is valid based on whether the centre point of the trailer is inscribed (less than the footprint width from obstacles)
 // and if any of the four footprint corners are in collision
-bool EnvironmentXXXLATTICE::IsValidTrailerConfiguration(double x, double y, double theta) {
+bool EnvironmentXXXLATTICE::IsValidTrailerConfiguration(double x, double y, double theta, int& cost) {
     int disc_x = CONTXY2DISC(x, EnvXXXCfg.cellsize_m);
     int disc_y = CONTXY2DISC(y, EnvXXXCfg.cellsize_m);
     if (!IsValidCell(disc_x, disc_y)) {
@@ -2931,55 +2970,32 @@ bool EnvironmentXXXLATTICE::IsValidTrailerConfiguration(double x, double y, doub
     if (EnvXXXCfg.Grid2D[disc_x][disc_y] >= EnvXXXCfg.cost_inscribed_thresh) {
         return false;
     }
-    
-    std::vector<sbpl_2Dpt_t> transformedPolygon;
-    transformedPolygon.resize(EnvXXXCfg.TrailerPolygon.size());
 
-    for (int i = 0; i < EnvXXXCfg.TrailerPolygon.size(); i++) {
-        transformedPolygon[i].x = x + EnvXXXCfg.TrailerPolygon[i].x * cos(theta) - EnvXXXCfg.TrailerPolygon[i].y * sin(theta);
-        transformedPolygon[i].y = y + EnvXXXCfg.TrailerPolygon[i].x * sin(theta) + EnvXXXCfg.TrailerPolygon[i].y * cos(theta);
-    }
+    sbpl_xy_theta_pt_t pose;
+    pose.x = x;
+    pose.y = y;
+    pose.theta = theta;
 
-    for (const auto& pt : transformedPolygon) {
-        int poly_x = CONTXY2DISC(pt.x, EnvXXXCfg.cellsize_m);
-        int poly_y = CONTXY2DISC(pt.y, EnvXXXCfg.cellsize_m);
+    std::vector<sbpl_2Dcell_t> trailer_footprint;
+    get_2d_footprint_cells(
+            EnvXXXCfg.TrailerPolygon,
+            &trailer_footprint,
+            pose,
+            EnvXXXCfg.cellsize_m);
+
+    for (const auto& cell : trailer_footprint) {
+        int poly_x = cell.x;
+        int poly_y = cell.y;
         if (!IsValidCell(poly_x, poly_y)) {
             return false;
         }
-        if (EnvXXXCfg.Grid2D[poly_x][poly_y] >= EnvXXXCfg.obsthresh) {
-            return false;
-        }
-    }
-    return true;
-}
-
-// We add a cost based on the trailer position. If any of the footprint corners are in the inflation region there is a cost associated (otherwise 0 cost)
-int EnvironmentXXXLATTICE::GetTrailerCost(TrailerState& endTrailer) {
-    // We already checked isValidTrailerConfig so no need to do that here
-
-    double x = endTrailer.x;
-    double y = endTrailer.y;
-    double theta = endTrailer.theta2;
-    int trailer_cost = 0;
-
-    std::vector<sbpl_2Dpt_t> transformedPolygon;
-    transformedPolygon.resize(EnvXXXCfg.TrailerPolygon.size());
-
-    for (int i = 0; i < EnvXXXCfg.TrailerPolygon.size(); i++) {
-        transformedPolygon[i].x = x + EnvXXXCfg.TrailerPolygon[i].x * cos(theta) - EnvXXXCfg.TrailerPolygon[i].y * sin(theta);
-        transformedPolygon[i].y = y + EnvXXXCfg.TrailerPolygon[i].x * sin(theta) + EnvXXXCfg.TrailerPolygon[i].y * cos(theta);
-    }
-
-    int size = 0;
-    for (const auto& pt : transformedPolygon) {
-        int poly_x = CONTXY2DISC(pt.x, EnvXXXCfg.cellsize_m);
-        int poly_y = CONTXY2DISC(pt.y, EnvXXXCfg.cellsize_m);
+        // We add a cost based on the trailer position. If any of the footprint cells are in the inflation region there is a cost associated (otherwise 0 cost)
         if (EnvXXXCfg.Grid2D[poly_x][poly_y] > 0) {
-            trailer_cost += EnvXXXCfg.Grid2D[poly_x][poly_y] * 5; // Costmap cost ranges from 0 to 254 (lethal) so I'm scaling by 5 to increase the punishment of going into the inflation region
+            cost += EnvXXXCfg.Grid2D[poly_x][poly_y]; // Costmap cost ranges from 0 to 254 (lethal) so I'm scaling by 5 to increase the punishment of going into the inflation region
         }
     }
-    // SBPL_WARN("Trailer cost: %d", trailer_cost);
-    return trailer_cost;
+
+    return true;
 }
 
 void EnvironmentXXXLAT::GetSuccs(
@@ -3028,9 +3044,18 @@ void EnvironmentXXXLAT::GetSuccs(
             0.0
         };
         currentHistory.positions.push_back(startState);
+
+        double trailer_x, trailer_y;
+        if (EnvXXXCfg.num_pivots == 2) {
+            trailer_x = currentX - EnvXXXCfg.R0*cos(currentTheta) - EnvXXXCfg.F1*cos(EnvXXXCfg.StartTheta1) - (EnvXXXCfg.F2/2)*cos(EnvXXXCfg.StartTheta2);
+            trailer_y = currentY - EnvXXXCfg.R0*sin(currentTheta) - EnvXXXCfg.F1*sin(EnvXXXCfg.StartTheta1) - (EnvXXXCfg.F2/2)*sin(EnvXXXCfg.StartTheta2);
+        } else {
+            trailer_x = currentX - EnvXXXCfg.R0*cos(currentTheta) - EnvXXXCfg.F1*cos(EnvXXXCfg.StartTheta1) + OFFSET*cos(EnvXXXCfg.StartTheta1);
+            trailer_y = currentY - EnvXXXCfg.R0*sin(currentTheta) - EnvXXXCfg.F1*sin(EnvXXXCfg.StartTheta1) + OFFSET*sin(EnvXXXCfg.StartTheta1);
+        }
         currentHistory.currentTrailer = TrailerState(
-            currentX - R0*cos(currentTheta) - F1*cos(EnvXXXCfg.StartTheta1) - (F2/2)*cos(EnvXXXCfg.StartTheta2),
-            currentY - R0*sin(currentTheta) - F1*sin(EnvXXXCfg.StartTheta1) - (F2/2)*sin(EnvXXXCfg.StartTheta2),
+            trailer_x,
+            trailer_y,
             EnvXXXCfg.StartTheta1,
             EnvXXXCfg.StartTheta2
         );
@@ -3080,12 +3105,11 @@ void EnvironmentXXXLAT::GetSuccs(
 
         // Find the resulting trailer state after the action is taken - if invalid we discard this action
         TrailerState newTrailer;
-        if (!calculateTrailerFromPath(newHistory.positions, newTrailer)) {
+        int trailer_cost = 0;
+        if (!calculateTrailerFromPath(newHistory.positions, newTrailer) || !IsValidTrailerConfiguration(newTrailer.x, newTrailer.y, newTrailer.theta2, trailer_cost)) {
             continue;
         }
         newHistory.currentTrailer = newTrailer;
-
-        int trailer_cost = GetTrailerCost(newTrailer); 
         
         EnvXXXLATHashEntry_t* OutHashEntry;
         if ((OutHashEntry = (this->*GetHashEntry)(newX, newY, newTheta)) == NULL) {
@@ -3098,7 +3122,6 @@ void EnvironmentXXXLAT::GetSuccs(
         SuccIDV->push_back(OutHashEntry->stateID);
         CostV->push_back(cost + trailer_cost);
         // CostV->push_back(cost);
-        // SBPL_WARN("Cost: %d", cost);
         if (actionV != NULL) {
             actionV->push_back(nav3daction);
         }
@@ -3446,30 +3469,6 @@ int EnvironmentXXXLAT::GetGoalHeuristic(int stateID)
     int h2D = grid2Dsearchfromgoal->getlowerboundoncostfromstart_inmm(HashEntry->X, HashEntry->Y);
     int hEuclid = (int)(XXXLAT_COSTMULT_MTOMM *
             EuclideanDistance_m(HashEntry->X, HashEntry->Y, EnvXXXCfg.EndX_c, EnvXXXCfg.EndY_c));
-
-    // Add clearance component based on Grid2D cost
-    // double clearancePenalty = 0;
-    // const int CLEARANCE_WINDOW = 50;  // Increased window to look further for obstacles
-    // double minCostRatio = 1.0;  // Track the best clearance we find
-    // // First find minimum cost ratio (best clearance) in the window
-    // for(int dx = -CLEARANCE_WINDOW; dx <= CLEARANCE_WINDOW; dx++) {
-    //     for(int dy = -CLEARANCE_WINDOW; dy <= CLEARANCE_WINDOW; dy++) {
-    //         int checkX = HashEntry->X + dx;
-    //         int checkY = HashEntry->Y + dy;
-    //         if(IsValidCell(checkX, checkY)) {
-    //             int cellCost = EnvXXXCfg.Grid2D[checkX][checkY];
-    //             double costRatio = (double)cellCost / EnvXXXCfg.cost_inscribed_thresh;
-    //             double distance = sqrt(dx*dx + dy*dy);
-    //             // For each direction, accumulate inverse clearance
-    //             clearancePenalty += costRatio * (CLEARANCE_WINDOW - distance) / CLEARANCE_WINDOW;
-    //         }
-    //     }
-    // }
-    // // Scale the clearance penalty - even small costs will contribute
-    // const double CLEARANCE_WEIGHT = 1.0;  
-    // int totalHeuristic = (int)(((double)__max(h2D, hEuclid)) / EnvXXXCfg.nominalvel_mpersecs + 
-    //                           CLEARANCE_WEIGHT * clearancePenalty);
-    // return totalHeuristic;
 
     // define this function if it is used in the planner (heuristic backward search would use it)
     return (int)(((double)__max(h2D, hEuclid)) / EnvXXXCfg.nominalvel_mpersecs);

@@ -65,9 +65,9 @@ struct TrailerState {
     double x;
     double y;
     double theta1;
-    double theta2;
+    double theta2; // Used only for four wheel trailers
     TrailerState() : x(0), y(0), theta1(0), theta2(0) {}
-    TrailerState(double x_, double y_, double theta1_, double theta2_) : x(x_), y(y_), theta1(theta1_), theta2(theta2_) {}
+    TrailerState(double x_, double y_, double theta1_, double theta2_ = 0.0) : x(x_), y(y_), theta1(theta1_), theta2(theta2_) {}
 };
 
 struct PathState {
@@ -153,6 +153,11 @@ struct EnvXXXLATConfig_t
     double goaltol_theta;
     unsigned char** Grid2D;
 
+    double R0;
+    double F1;
+    double F2;
+    int num_pivots;
+
     std::vector<double> ThetaDirs;
     double StartTheta_rad;
     double EndTheta_rad;
@@ -219,6 +224,10 @@ public:
     double goaltol_x;
     double goaltol_y;
     double goaltol_theta;
+    double R0;
+    double F1;
+    double F2;
+    int num_pivots;
 };
 
 /** \brief 3D (x,y,theta) planning using lattice-based graph problem. For
@@ -370,7 +379,8 @@ public:
                                double goaltol_x, double goaltol_y, double goaltol_theta,
                                const std::vector<sbpl_2Dpt_t>& perimeterptsV, const std::vector<sbpl_2Dpt_t>& trailer_perimeterptsV,
                                double cellsize_m, double nominalvel_mpersecs, double timetoturn45degsinplace_secs,
-                               unsigned char obsthresh, const char* sMotPrimFile);
+                               unsigned char obsthresh, const char* sMotPrimFile,
+                               double R0, double F1, double F2, int num_pivots);
 
     /**
      * \brief Same as the above InitializeEnv except that only the parameters
@@ -503,9 +513,9 @@ protected:
     int bucketsize; // 2D bucket size
     bool bUseNonUniformAngles;
 
-    const double R0;
-    const double F1;
-    const double F2;
+    // const double R0;
+    // const double F1;
+    // const double F2;
 
     std::unordered_map<int, PathHistory> stateToPathHistory;
 
@@ -571,7 +581,7 @@ protected:
     virtual bool calculateTrailerFromPath(const std::vector<PathState>& path, TrailerState& finalTrailer);
     virtual bool calculateTrailerTransition(double startX, double startY, double startTheta, double endX, double endY, double endTheta,
                                             double time, const TrailerState& startTrailer, TrailerState& endTrailer);
-    virtual bool IsValidTrailerConfiguration(double x, double y, double theta);
+    virtual bool IsValidTrailerConfiguration(double x, double y, double theta, int& cost);
 };
 
 class EnvironmentXXXLAT : public EnvironmentXXXLATTICE
@@ -651,8 +661,8 @@ public:
      */
     virtual void GetSuccs(int SourceStateID, std::vector<int>* SuccIDV, std::vector<int>* CostV,
                           std::vector<EnvXXXLATAction_t*>* actionindV = NULL);
-    virtual void GetSuccsOfBestPath(int SourceStateID, std::vector<int>* SuccIDV, std::vector<int>* CostV,
-                          std::vector<EnvXXXLATAction_t*>* actionindV = NULL);
+    // virtual void GetSuccsOfBestPath(int SourceStateID, std::vector<int>* SuccIDV, std::vector<int>* CostV,
+    //                       std::vector<EnvXXXLATAction_t*>* actionindV = NULL);
 
     virtual void GetLazySuccs(int SourceStateID, std::vector<int>* SuccIDV, std::vector<int>* CostV, std::vector<bool>* isTrueCost, std::vector<EnvXXXLATAction_t*>* actionindV = NULL);
     virtual void GetSuccsWithUniqueIds(int SourceStateID, std::vector<int>* SuccIDV, std::vector<int>* CostV, std::vector<EnvXXXLATAction_t*>* actionindV = NULL);

@@ -1303,155 +1303,6 @@ void EnvironmentXXXLATTICE::PrecomputeActionswithCompleteMotionPrimitive(
     SBPL_PRINTF("done pre-computing action data based on motion primitives\n");
 }
 
-void EnvironmentXXXLATTICE::DeprecatedPrecomputeActions()
-{
-    SBPL_PRINTF("Use of DeprecatedPrecomputeActions() is deprecated and probably doesn't work!\n");
-
-    // construct list of actions
-    SBPL_PRINTF("Pre-computing action data using the motion primitives for a 3D kinematic planning...\n");
-    EnvXXXCfg.ActionsV = new EnvXXXLATAction_t*[EnvXXXCfg.NumThetaDirs];
-    EnvXXXCfg.PredActionsV = new std::vector<EnvXXXLATAction_t*> [EnvXXXCfg.NumThetaDirs];
-    std::vector<sbpl_2Dcell_t> footprint;
-    // iterate over source angles
-    for (int tind = 0; tind < EnvXXXCfg.NumThetaDirs; tind++) {
-        SBPL_PRINTF("processing angle %d\n", tind);
-        EnvXXXCfg.ActionsV[tind] = new EnvXXXLATAction_t[EnvXXXCfg.actionwidth];
-
-        // compute sourcepose
-        sbpl_xy_theta_pt_t sourcepose;
-        sourcepose.x = DISCXY2CONT(0, EnvXXXCfg.cellsize_m);
-        sourcepose.y = DISCXY2CONT(0, EnvXXXCfg.cellsize_m);
-        sourcepose.theta = DiscTheta2ContNew(tind);
-
-        // the construction assumes that the robot first turns and then goes
-        // along this new theta
-        int aind = 0;
-        for (; aind < 3; aind++) {
-            EnvXXXCfg.ActionsV[tind][aind].aind = aind;
-            EnvXXXCfg.ActionsV[tind][aind].starttheta = tind;
-            // -1,0,1
-            EnvXXXCfg.ActionsV[tind][aind].endtheta = (tind + aind - 1) % EnvXXXCfg.NumThetaDirs;
-            double angle = DiscTheta2ContNew(EnvXXXCfg.ActionsV[tind][aind].endtheta);
-            EnvXXXCfg.ActionsV[tind][aind].dX = (int)(cos(angle) + 0.5 * (cos(angle) > 0 ? 1 : -1));
-            EnvXXXCfg.ActionsV[tind][aind].dY = (int)(sin(angle) + 0.5 * (sin(angle) > 0 ? 1 : -1));
-            EnvXXXCfg.ActionsV[tind][aind].cost = (int)(ceil(XXXLAT_COSTMULT_MTOMM *
-                    EnvXXXCfg.cellsize_m / EnvXXXCfg.nominalvel_mpersecs *
-                    sqrt((double)(EnvXXXCfg.ActionsV[tind][aind].dX *
-                            EnvXXXCfg.ActionsV[tind][aind].dX + EnvXXXCfg.ActionsV[tind][aind].dY *
-                            EnvXXXCfg.ActionsV[tind][aind].dY))));
-
-            // compute intersecting cells
-            sbpl_xy_theta_pt_t pose;
-            pose.x = DISCXY2CONT(EnvXXXCfg.ActionsV[tind][aind].dX, EnvXXXCfg.cellsize_m);
-            pose.y = DISCXY2CONT(EnvXXXCfg.ActionsV[tind][aind].dY, EnvXXXCfg.cellsize_m);
-            pose.theta = angle;
-            EnvXXXCfg.ActionsV[tind][aind].intermptV.clear();
-            EnvXXXCfg.ActionsV[tind][aind].intersectingcellsV.clear();
-            get_2d_footprint_cells(
-                    EnvXXXCfg.FootprintPolygon,
-                    &EnvXXXCfg.ActionsV[tind][aind].intersectingcellsV,
-                    pose,
-                    EnvXXXCfg.cellsize_m);
-            RemoveSourceFootprint(sourcepose, &EnvXXXCfg.ActionsV[tind][aind].intersectingcellsV);
-
-#if DEBUG
-            SBPL_PRINTF("action tind=%d aind=%d: endtheta=%d (%f) dX=%d dY=%d cost=%d\n",
-                        tind, aind, EnvXXXCfg.ActionsV[tind][aind].endtheta, angle,
-                        EnvXXXCfg.ActionsV[tind][aind].dX, EnvXXXCfg.ActionsV[tind][aind].dY,
-                        EnvXXXCfg.ActionsV[tind][aind].cost);
-#endif
-
-            // add to the list of backward actions
-            int targettheta = EnvXXXCfg.ActionsV[tind][aind].endtheta;
-            if (targettheta < 0) {
-                targettheta = targettheta + EnvXXXCfg.NumThetaDirs;
-            }
-            EnvXXXCfg.PredActionsV[targettheta].push_back(&(EnvXXXCfg.ActionsV[tind][aind]));
-        }
-
-        // decrease and increase angle without movement
-        aind = 3;
-        EnvXXXCfg.ActionsV[tind][aind].aind = aind;
-        EnvXXXCfg.ActionsV[tind][aind].starttheta = tind;
-        EnvXXXCfg.ActionsV[tind][aind].endtheta = tind - 1;
-        if (EnvXXXCfg.ActionsV[tind][aind].endtheta < 0) {
-            EnvXXXCfg.ActionsV[tind][aind].endtheta += EnvXXXCfg.NumThetaDirs;
-        }
-        EnvXXXCfg.ActionsV[tind][aind].dX = 0;
-        EnvXXXCfg.ActionsV[tind][aind].dY = 0;
-        EnvXXXCfg.ActionsV[tind][aind].cost =
-                (int)(XXXLAT_COSTMULT_MTOMM * EnvXXXCfg.timetoturn45degsinplace_secs);
-
-        // compute intersecting cells
-        sbpl_xy_theta_pt_t pose;
-        pose.x = DISCXY2CONT(EnvXXXCfg.ActionsV[tind][aind].dX, EnvXXXCfg.cellsize_m);
-        pose.y = DISCXY2CONT(EnvXXXCfg.ActionsV[tind][aind].dY, EnvXXXCfg.cellsize_m);
-        pose.theta = DiscTheta2ContNew(EnvXXXCfg.ActionsV[tind][aind].endtheta);
-        EnvXXXCfg.ActionsV[tind][aind].intermptV.clear();
-        EnvXXXCfg.ActionsV[tind][aind].intersectingcellsV.clear();
-        get_2d_footprint_cells(
-                EnvXXXCfg.FootprintPolygon,
-                &EnvXXXCfg.ActionsV[tind][aind].intersectingcellsV,
-                pose,
-                EnvXXXCfg.cellsize_m);
-        RemoveSourceFootprint(sourcepose, &EnvXXXCfg.ActionsV[tind][aind].intersectingcellsV);
-
-#if DEBUG
-        SBPL_PRINTF("action tind=%d aind=%d: endtheta=%d (%f) dX=%d dY=%d cost=%d\n",
-                    tind, aind, EnvXXXCfg.ActionsV[tind][aind].endtheta,
-                    DiscTheta2ContNew(EnvXXXCfg.ActionsV[tind][aind].endtheta),
-                    EnvXXXCfg.ActionsV[tind][aind].dX, EnvXXXCfg.ActionsV[tind][aind].dY,
-                    EnvXXXCfg.ActionsV[tind][aind].cost);
-#endif
-
-        // add to the list of backward actions
-        int targettheta = EnvXXXCfg.ActionsV[tind][aind].endtheta;
-        if (targettheta < 0) {
-            targettheta = targettheta + EnvXXXCfg.NumThetaDirs;
-        }
-        EnvXXXCfg.PredActionsV[targettheta].push_back(&(EnvXXXCfg.ActionsV[tind][aind]));
-
-        aind = 4;
-        EnvXXXCfg.ActionsV[tind][aind].aind = aind;
-        EnvXXXCfg.ActionsV[tind][aind].starttheta = tind;
-        EnvXXXCfg.ActionsV[tind][aind].endtheta = (tind + 1) % EnvXXXCfg.NumThetaDirs;
-        EnvXXXCfg.ActionsV[tind][aind].dX = 0;
-        EnvXXXCfg.ActionsV[tind][aind].dY = 0;
-        EnvXXXCfg.ActionsV[tind][aind].cost =
-                (int)(XXXLAT_COSTMULT_MTOMM * EnvXXXCfg.timetoturn45degsinplace_secs);
-
-        // compute intersecting cells
-        pose.x = DISCXY2CONT(EnvXXXCfg.ActionsV[tind][aind].dX, EnvXXXCfg.cellsize_m);
-        pose.y = DISCXY2CONT(EnvXXXCfg.ActionsV[tind][aind].dY, EnvXXXCfg.cellsize_m);
-        pose.theta = DiscTheta2ContNew(EnvXXXCfg.ActionsV[tind][aind].endtheta);
-        EnvXXXCfg.ActionsV[tind][aind].intermptV.clear();
-        EnvXXXCfg.ActionsV[tind][aind].intersectingcellsV.clear();
-        get_2d_footprint_cells(
-                EnvXXXCfg.FootprintPolygon,
-                &EnvXXXCfg.ActionsV[tind][aind].intersectingcellsV,
-                pose,
-                EnvXXXCfg.cellsize_m);
-        RemoveSourceFootprint(sourcepose, &EnvXXXCfg.ActionsV[tind][aind].intersectingcellsV);
-
-#if DEBUG
-        SBPL_PRINTF("action tind=%d aind=%d: endtheta=%d (%f) dX=%d dY=%d cost=%d\n",
-                    tind, aind, EnvXXXCfg.ActionsV[tind][aind].endtheta, DiscTheta2ContNew(EnvXXXCfg.ActionsV[tind][aind].endtheta),
-                    EnvXXXCfg.ActionsV[tind][aind].dX, EnvXXXCfg.ActionsV[tind][aind].dY,
-                    EnvXXXCfg.ActionsV[tind][aind].cost);
-#endif
-
-        // add to the list of backward actions
-        targettheta = EnvXXXCfg.ActionsV[tind][aind].endtheta;
-        if (targettheta < 0) targettheta = targettheta + EnvXXXCfg.NumThetaDirs;
-        EnvXXXCfg.PredActionsV[targettheta].push_back(&(EnvXXXCfg.ActionsV[tind][aind]));
-    }
-
-    // now compute replanning data
-    ComputeReplanningData();
-
-    SBPL_PRINTF("done pre-computing action data\n");
-}
-
 void EnvironmentXXXLATTICE::InitializeEnvConfig(std::vector<SBPL_xxx_mprimitive>* motionprimitiveV)
 {
     // additional to configuration file initialization of EnvXXXCfg if
@@ -1501,12 +1352,7 @@ void EnvironmentXXXLATTICE::InitializeEnvConfig(std::vector<SBPL_xxx_mprimitive>
     }
 #endif
 
-    if (motionprimitiveV == NULL) {
-        DeprecatedPrecomputeActions();
-    }
-    else {
-        PrecomputeActionswithCompleteMotionPrimitive(motionprimitiveV);
-    }
+    PrecomputeActionswithCompleteMotionPrimitive(motionprimitiveV);
 }
 
 bool EnvironmentXXXLATTICE::IsValidCell(int X, int Y)
@@ -2119,31 +1965,6 @@ void EnvironmentXXXLATTICE::GetSuccs(
     std::vector<int>* CostV)
 {
     GetSuccs(SourceStateID, SuccIDV, CostV, NULL);
-}
-void EnvironmentXXXLATTICE::GetLazySuccs(
-    int SourceStateID,
-    std::vector<int>* SuccIDV,
-    std::vector<int>* CostV,
-    std::vector<bool>* isTrueCost)
-{
-    GetLazySuccs(SourceStateID, SuccIDV, CostV, isTrueCost, NULL);
-}
-
-void EnvironmentXXXLATTICE::GetSuccsWithUniqueIds(
-    int SourceStateID,
-    std::vector<int>* SuccIDV,
-    std::vector<int>* CostV)
-{
-    GetSuccsWithUniqueIds(SourceStateID, SuccIDV, CostV, NULL);
-}
-
-void EnvironmentXXXLATTICE::GetLazySuccsWithUniqueIds(
-    int SourceStateID,
-    std::vector<int>* SuccIDV,
-    std::vector<int>* CostV,
-    std::vector<bool>* isTrueCost)
-{
-    GetLazySuccsWithUniqueIds(SourceStateID, SuccIDV, CostV, isTrueCost, NULL);
 }
 
 const EnvXXXLATConfig_t* EnvironmentXXXLATTICE::GetEnvNavConfig()
@@ -3511,90 +3332,6 @@ EnvironmentXXXLAT::GetStateEntry(int state_id) const
     }
 }
 
-//------------------------------------------------------------------------------
-
-
-void EnvironmentXXXLAT::GetLazySuccs(
-    int SourceStateID,
-    std::vector<int>* SuccIDV,
-    std::vector<int>* CostV,
-    std::vector<bool>* isTrueCost,
-    std::vector<EnvXXXLATAction_t*>* actionV)
-{
-    int aind;
-
-#if TIME_DEBUG
-    clock_t currenttime = clock();
-#endif
-
-    // clear the successor array
-    SuccIDV->clear();
-    CostV->clear();
-    SuccIDV->reserve(EnvXXXCfg.actionwidth);
-    CostV->reserve(EnvXXXCfg.actionwidth);
-    isTrueCost->reserve(EnvXXXCfg.actionwidth);
-    if (actionV != NULL) {
-        actionV->clear();
-        actionV->reserve(EnvXXXCfg.actionwidth);
-    }
-
-    // goal state should be absorbing
-    if (SourceStateID == EnvXXXLAT.goalstateid) {
-        return;
-    }
-
-    // get X, Y for the state
-    EnvXXXLATHashEntry_t* HashEntry = StateID2CoordTable[SourceStateID];
-
-    // iterate through actions
-    for (aind = 0; aind < EnvXXXCfg.actionwidth; aind++) {
-        EnvXXXLATAction_t* nav3daction = &EnvXXXCfg.ActionsV[(unsigned int)HashEntry->Theta][aind];
-        int newX = HashEntry->X + nav3daction->dX;
-        int newY = HashEntry->Y + nav3daction->dY;
-        int newTheta = normalizeDiscAngle(nav3daction->endtheta);
-
-        // skip the invalid cells
-        if (!IsValidCell(newX, newY)) {
-            continue;
-        }
-
-        // if we are supposed to return the action, then don't do lazy
-        if (!actionV) {
-            EnvXXXLATHashEntry_t* OutHashEntry;
-            if ((OutHashEntry = (this->*GetHashEntry)(newX, newY, newTheta)) == NULL) {
-                OutHashEntry = (this->*CreateNewHashEntry)(newX, newY, newTheta);
-            }
-            SuccIDV->push_back(OutHashEntry->stateID);
-            CostV->push_back(nav3daction->cost);
-            isTrueCost->push_back(false);
-            continue;
-        }
-
-        // get cost
-        int cost = GetActionCost(HashEntry->X, HashEntry->Y, HashEntry->Theta, nav3daction);
-        if (cost >= INFINITECOST) {
-            continue;
-        }
-
-        EnvXXXLATHashEntry_t* OutHashEntry;
-        if ((OutHashEntry = (this->*GetHashEntry)(newX, newY, newTheta)) == NULL) {
-            // have to create a new entry
-            OutHashEntry = (this->*CreateNewHashEntry)(newX, newY, newTheta);
-        }
-
-        SuccIDV->push_back(OutHashEntry->stateID);
-        CostV->push_back(cost);
-        isTrueCost->push_back(true);
-        if (actionV != NULL) {
-            actionV->push_back(nav3daction);
-        }
-    }
-
-#if TIME_DEBUG
-    time_getsuccs += clock()-currenttime;
-#endif
-}
-
 int EnvironmentXXXLAT::GetTrueCost(int parentID, int childID)
 {
     EnvXXXLATHashEntry_t* fromHash = StateID2CoordTable[parentID];
@@ -3631,25 +3368,6 @@ int EnvironmentXXXLAT::GetTrueCost(int parentID, int childID)
     return -1;
 }
 
-void EnvironmentXXXLAT::GetSuccsWithUniqueIds(
-    int SourceStateID,
-    std::vector<int>* SuccIDV,
-    std::vector<int>* CostV,
-    std::vector<EnvXXXLATAction_t*>* actionV)
-{
-    GetSuccs(SourceStateID, SuccIDV, CostV, actionV);
-}
-
-void EnvironmentXXXLAT::GetLazySuccsWithUniqueIds(
-    int SourceStateID,
-    std::vector<int>* SuccIDV,
-    std::vector<int>* CostV,
-    std::vector<bool>* isTrueCost,
-    std::vector<EnvXXXLATAction_t*>* actionV)
-{
-    GetLazySuccs(SourceStateID, SuccIDV, CostV, isTrueCost, actionV);
-}
-
 // I adjusted the isGoal function to allow a goal tolerance. This is needed for the trailer planner as motion pritive restricts turning on the spot and short motions
 // this makes reaching the exact cell position and orientation (previous requirement) much more difficult
 bool EnvironmentXXXLAT::isGoal(int id)
@@ -3673,72 +3391,4 @@ bool EnvironmentXXXLAT::isGoal(int id)
             fabs(PoseHash->Y - GoalHash->Y) <= tol_y &&
             fabs(PoseHash->Theta - GoalHash->Theta) <= tol_theta);
     // return EnvXXXLAT.goalstateid == id;
-}
-
-void EnvironmentXXXLAT::GetLazyPreds(
-    int TargetStateID,
-    std::vector<int>* PredIDV,
-    std::vector<int>* CostV,
-    std::vector<bool>* isTrueCost)
-{
-    int aind;
-
-#if TIME_DEBUG
-    clock_t currenttime = clock();
-#endif
-
-    // get X, Y for the state
-    EnvXXXLATHashEntry_t* HashEntry = StateID2CoordTable[TargetStateID];
-
-    // clear the successor array
-    PredIDV->clear();
-    CostV->clear();
-    PredIDV->reserve(EnvXXXCfg.PredActionsV[(unsigned int)HashEntry->Theta].size());
-    CostV->reserve(EnvXXXCfg.PredActionsV[(unsigned int)HashEntry->Theta].size());
-
-    // iterate through actions
-    std::vector<EnvXXXLATAction_t*>* actionsV = &EnvXXXCfg.PredActionsV[(unsigned int)HashEntry->Theta];
-    for (aind = 0; aind < (int)EnvXXXCfg.PredActionsV[(unsigned int)HashEntry->Theta].size(); aind++)
-    {
-        EnvXXXLATAction_t* nav3daction = actionsV->at(aind);
-
-        int predX = HashEntry->X - nav3daction->dX;
-        int predY = HashEntry->Y - nav3daction->dY;
-        int predTheta = nav3daction->starttheta;
-
-        //skip the invalid cells
-        if (!IsValidCell(predX, predY)) {
-            continue;
-        }
-
-        EnvXXXLATHashEntry_t* OutHashEntry;
-        if ((OutHashEntry = (this->*GetHashEntry)(predX, predY, predTheta)) == NULL) {
-            OutHashEntry = (this->*CreateNewHashEntry)(predX, predY, predTheta);
-        }
-
-        PredIDV->push_back(OutHashEntry->stateID);
-        CostV->push_back(nav3daction->cost);
-        isTrueCost->push_back(false);
-    }
-
-#if TIME_DEBUG
-    time_getsuccs += clock()-currenttime;
-#endif
-}
-
-void EnvironmentXXXLAT::GetPredsWithUniqueIds(
-    int TargetStateID,
-    std::vector<int>* PredIDV,
-    std::vector<int>* CostV)
-{
-    GetPreds(TargetStateID, PredIDV, CostV);
-}
-
-void EnvironmentXXXLAT::GetLazyPredsWithUniqueIds(
-    int TargetStateID,
-    std::vector<int>* PredIDV,
-    std::vector<int>* CostV,
-    std::vector<bool>* isTrueCost)
-{
-    GetLazyPreds(TargetStateID, PredIDV, CostV, isTrueCost);
 }

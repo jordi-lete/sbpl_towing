@@ -44,7 +44,7 @@
 
 //eight-connected grid
 #define XXXLAT_DXYWIDTH 8
-#define EnvXXXLAT_DEFAULTOBSTHRESH 254
+#define EnvXXXLAT_DEFAULTOBSTHRESH 254	//see explanation of the value below
 //maximum number of states for storing them into lookup (as opposed to hash)
 #define SBPL_XXXLAT_MAXSTATESFORLOOKUP 100000000
 //definition of theta orientations
@@ -267,17 +267,17 @@ public:
      * \brief way to set up various parameters. For a list of parameters, see
      *        the body of the function - it is pretty straightforward
      */
-    virtual bool SetEnvParameter(const char* parameter, int value);
+    bool SetEnvParameter(const char* parameter, int value);
 
     /**
      * \brief returns the value of specific parameter - see function body for the list of parameters
      */
-    virtual int GetEnvParameter(const char* parameter);
+    int GetEnvParameter(const char* parameter);
 
     /**
      * \brief see comments on the same function in the parent class
      */
-    virtual bool InitializeMDPCfg(MDPConfig *MDPCfg);
+    bool InitializeMDPCfg(MDPConfig *MDPCfg);
 
     /**
      * \brief see comments on the same function in the parent class
@@ -302,15 +302,12 @@ public:
     /**
      * \brief see comments on the same function in the parent class
      */
-    virtual void SetAllPreds(CMDPSTATE* state);
+    void SetAllPreds(CMDPSTATE* state);
 
     /**
      * \brief see comments on the same function in the parent class
      */
     virtual void GetSuccs(int SourceStateID, std::vector<int>* SuccIDV, std::vector<int>* CostV);
-    virtual void GetLazySuccs(int SourceStateID, std::vector<int>* SuccIDV, std::vector<int>* CostV, std::vector<bool>* isTrueCost);
-    virtual void GetSuccsWithUniqueIds(int SourceStateID, std::vector<int>* SuccIDV, std::vector<int>* CostV);
-    virtual void GetLazySuccsWithUniqueIds(int SourceStateID, std::vector<int>* SuccIDV, std::vector<int>* CostV, std::vector<bool>* isTrueCost);
 
     /**
      * \brief see comments on the same function in the parent class
@@ -320,12 +317,12 @@ public:
     /**
      * \brief see comments on the same function in the parent class
      */
-    virtual void EnsureHeuristicsUpdated(bool bGoalHeuristics);
+    void EnsureHeuristicsUpdated(bool bGoalHeuristics);
 
     /**
      * \brief see comments on the same function in the parent class
      */
-    virtual void PrintEnv_Config(FILE* fOut);
+    void PrintEnv_Config(FILE* fOut);
 
     /**
      * \brief set the block size for the 2D heuristic. A block size of 1 is the default and will result in
@@ -333,23 +330,23 @@ public:
      *        A block size of 2 will result in a single cell in the 2D heuristic search corresponding to
      *        a 2x2 set of blocks from the source map with a cost of the max of the 2x2 source cells.
      */
-    virtual void Set2DBlockSize(int BlockSize);
+    void Set2DBlockSize(int BlockSize);
 
     /**
      * @brief Set2DBucketSize Set the initial size of the CSlidingBuckets used for the fringe priority list
      * @param BucketSize
      */
-    virtual void Set2DBucketSize(int BucketSize);
+    void Set2DBucketSize(int BucketSize);
 
-    virtual double DiscTheta2ContNew(int theta) const;
+    double DiscTheta2ContNew(int theta) const;
 
-    virtual int ContTheta2DiscNew(double theta) const;
+    int ContTheta2DiscNew(double theta) const;
 
-    virtual double DiscTheta2ContFromSet(int theta) const;
+    double DiscTheta2ContFromSet(int theta) const;
 
-    virtual int ContTheta2DiscFromSet(double theta) const;
+    int ContTheta2DiscFromSet(double theta) const;
 
-    virtual int normalizeDiscAngle(int theta) const;
+    int normalizeDiscAngle(int theta) const;
 
     /**
      * \brief initialize environment. Gridworld is defined as matrix A of size width by height.
@@ -395,13 +392,13 @@ public:
     /**
      * \brief update the traversability of a cell<x,y>
      */
-    virtual bool UpdateCost(int x, int y, unsigned char newcost);
+    bool UpdateCost(int x, int y, unsigned char newcost);
 
     /**
      * \brief re-setting the whole 2D map
      *        transform from linear array mapdata to the 2D matrix used internally: Grid2D[x][y] = mapdata[x+y*width]
      */
-    virtual bool SetMap(const unsigned char* mapdata);
+    bool SetMap(const unsigned char* mapdata);
 
     /**
      * \brief this function fill in Predecessor/Successor states of edges whose costs changed
@@ -422,19 +419,19 @@ public:
     /**
      * returns true if cell is untraversable
      */
-    virtual bool IsObstacle(int x, int y);
+    bool IsObstacle(int x, int y);
 
     /**
      * \brief returns false if robot intersects obstacles or lies outside of
      *        the map. Note this is pretty expensive operation since it computes the
      *        footprint of the robot based on its x,y,theta
      */
-    virtual bool IsValidConfiguration(int X, int Y, int Theta);
+    bool IsValidConfiguration(int X, int Y, int Theta);
 
     /**
      * \brief returns environment parameters. Useful for creating a copy environment
      */
-    virtual void GetEnvParms(int *size_x, int *size_y, double* startx, double* starty, double* starttheta,
+    void GetEnvParms(int *size_x, int *size_y, double* startx, double* starty, double* starttheta,
                              double* goalx, double* goaly, double* goaltheta, double* cellsize_m,
                              double* nominalvel_mpersecs, double* timetoturn45degsinplace_secs,
                              unsigned char* obsthresh, std::vector<SBPL_xxx_mprimitive>* motionprimitiveV);
@@ -442,7 +439,7 @@ public:
     /**
      * \brief returns environment parameters. Useful for creating a copy environment
      */
-    virtual void GetEnvParms(int *size_x, int *size_y, int* num_thetas, double* startx, double* starty,
+    void GetEnvParms(int *size_x, int *size_y, int* num_thetas, double* startx, double* starty,
                              double* starttheta, double* goalx, double* goaly, double* goaltheta, double* cellsize_m,
                              double* nominalvel_mpersecs, double* timetoturn45degsinplace_secs,
                              unsigned char* obsthresh, std::vector<SBPL_xxx_mprimitive>* motionprimitiveV);
@@ -450,24 +447,24 @@ public:
     /**
      * \brief get internal configuration data structure
      */
-    virtual const EnvXXXLATConfig_t* GetEnvNavConfig();
+    const EnvXXXLATConfig_t* GetEnvNavConfig();
 
-    virtual ~EnvironmentXXXLATTICE();
+    ~EnvironmentXXXLATTICE();
 
     /**
      * \brief prints time statistics
      */
-    virtual void PrintTimeStat(FILE* fOut);
+    void PrintTimeStat(FILE* fOut);
 
     /**
      * \brief returns the cost corresponding to the cell <x,y>
      */
-    virtual unsigned char GetMapCost(int x, int y);
+    unsigned char GetMapCost(int x, int y);
 
     /**
      * \brief returns true if cell is within map
      */
-    virtual bool IsWithinMapCell(int X, int Y);
+    bool IsWithinMapCell(int X, int Y);
 
     /**
      * \brief Transform a pose into discretized form. The angle 'pth' is
@@ -482,7 +479,7 @@ public:
      * \return true if the resulting indices lie within the grid bounds
      *         and the angle was valid.
      */
-    virtual bool PoseContToDisc(double px, double py, double pth, int &ix, int &iy, int &ith) const;
+    bool PoseContToDisc(double px, double py, double pth, int &ix, int &iy, int &ith) const;
 
     /** \brief Transform grid indices into a continuous pose. The computed
      *         angle lies within 0<=pth<2pi.
@@ -493,7 +490,7 @@ public:
      *
      * \return true if all the indices are within grid bounds.
      */
-    virtual bool PoseDiscToCont(int ix, int iy, int ith, double &px, double &py, double &pth) const;
+    bool PoseDiscToCont(int ix, int iy, int ith, double &px, double &py, double &pth) const;
 
     /**
      * \brief prints environment variables for debugging
@@ -501,7 +498,7 @@ public:
     virtual void PrintVars() { }
 
 protected:
-    virtual int GetActionCost(int SourceX, int SourceY, int SourceTheta, EnvXXXLATAction_t* action);
+    int GetActionCost(int SourceX, int SourceY, int SourceTheta, EnvXXXLATAction_t* action);
 
     //member data
     EnvXXXLATConfig_t EnvXXXCfg;
@@ -525,13 +522,13 @@ protected:
     SBPL2DGridSearch* grid2Dsearchfromstart; //computes h-values that estimate distances from start x,y to all cells
     SBPL2DGridSearch* grid2Dsearchfromgoal; //computes h-values that estimate distances to goal x,y from all cells
 
-    virtual void ReadConfiguration(FILE* fCfg);
+    void ReadConfiguration(FILE* fCfg);
 
-    virtual void InitializeEnvConfig(std::vector<SBPL_xxx_mprimitive>* motionprimitiveV);
+    void InitializeEnvConfig(std::vector<SBPL_xxx_mprimitive>* motionprimitiveV);
 
-    virtual bool CheckQuant(FILE* fOut);
+    bool CheckQuant(FILE* fOut);
 
-    virtual void SetConfiguration(int width, int height,
+    void SetConfiguration(int width, int height,
                                   /** if mapdata is NULL the grid is initialized to all freespace */
                                   const unsigned char* mapdata,
                                   int startx, int starty, int starttheta, double starttheta1, double starttheta2,
@@ -540,48 +537,44 @@ protected:
                                   const std::vector<sbpl_2Dpt_t> & robot_perimeterV,
                                   const std::vector<sbpl_2Dpt_t> & trailer_perimeterV);
 
-    virtual bool InitGeneral(std::vector<SBPL_xxx_mprimitive>* motionprimitiveV);
-    virtual void PrecomputeActionswithBaseMotionPrimitive(std::vector<SBPL_xxx_mprimitive>* motionprimitiveV);
-    virtual void PrecomputeActionswithCompleteMotionPrimitive(std::vector<SBPL_xxx_mprimitive>* motionprimitiveV);
-    virtual void DeprecatedPrecomputeActions();
+    bool InitGeneral(std::vector<SBPL_xxx_mprimitive>* motionprimitiveV);
+    void PrecomputeActionswithBaseMotionPrimitive(std::vector<SBPL_xxx_mprimitive>* motionprimitiveV);
+    void PrecomputeActionswithCompleteMotionPrimitive(std::vector<SBPL_xxx_mprimitive>* motionprimitiveV);
 
     virtual void InitializeEnvironment() = 0;
 
-    virtual void ComputeHeuristicValues();
+    void ComputeHeuristicValues();
 
-    virtual bool IsValidCell(int X, int Y);
+    bool IsValidCell(int X, int Y);
 
-    virtual void CalculateFootprintForPose(sbpl_xy_theta_pt_t pose, std::vector<sbpl_2Dcell_t>* footprint);
-    virtual void CalculateFootprintForPose(sbpl_xy_theta_pt_t pose, std::vector<sbpl_2Dcell_t>* footprint,
+    void CalculateFootprintForPose(sbpl_xy_theta_pt_t pose, std::vector<sbpl_2Dcell_t>* footprint);
+    void CalculateFootprintForPose(sbpl_xy_theta_pt_t pose, std::vector<sbpl_2Dcell_t>* footprint,
                                            const std::vector<sbpl_2Dpt_t>& FootprintPolygon);
-    virtual void RemoveSourceFootprint(sbpl_xy_theta_pt_t sourcepose, std::vector<sbpl_2Dcell_t>* footprint);
-    virtual void RemoveSourceFootprint(sbpl_xy_theta_pt_t sourcepose, std::vector<sbpl_2Dcell_t>* footprint,
+    void RemoveSourceFootprint(sbpl_xy_theta_pt_t sourcepose, std::vector<sbpl_2Dcell_t>* footprint);
+    void RemoveSourceFootprint(sbpl_xy_theta_pt_t sourcepose, std::vector<sbpl_2Dcell_t>* footprint,
                                        const std::vector<sbpl_2Dpt_t>& FootprintPolygon);
 
     virtual void GetSuccs(int SourceStateID, std::vector<int>* SuccIDV, std::vector<int>* CostV,
                           std::vector<EnvXXXLATAction_t*>* actionindV = NULL) = 0;
-    virtual void GetLazySuccs(int SourceStateID, std::vector<int>* SuccIDV, std::vector<int>* CostV, std::vector<bool>* isTrueCost, std::vector<EnvXXXLATAction_t*>* actionindV = NULL) = 0;
-    virtual void GetSuccsWithUniqueIds(int SourceStateID, std::vector<int>* SuccIDV, std::vector<int>* CostV, std::vector<EnvXXXLATAction_t*>* actionindV = NULL) = 0;
-    virtual void GetLazySuccsWithUniqueIds(int SourceStateID, std::vector<int>* SuccIDV, std::vector<int>* CostV, std::vector<bool>* isTrueCost, std::vector<EnvXXXLATAction_t*>* actionindV = NULL) = 0;
     virtual int GetTrueCost(int parentID, int childID) = 0;
     virtual bool isGoal(int id) = 0;
 
-    virtual double EuclideanDistance_m(int X1, int Y1, int X2, int Y2);
+    double EuclideanDistance_m(int X1, int Y1, int X2, int Y2);
 
-    virtual void ComputeReplanningData();
-    virtual void ComputeReplanningDataforAction(EnvXXXLATAction_t* action);
+    void ComputeReplanningData();
+    void ComputeReplanningDataforAction(EnvXXXLATAction_t* action);
 
-    virtual bool ReadMotionPrimitives(FILE* fMotPrims);
-    virtual bool ReadinMotionPrimitive(SBPL_xxx_mprimitive* pMotPrim, FILE* fIn);
-    virtual bool ReadinCell(sbpl_xy_theta_cell_t* cell, FILE* fIn);
-    virtual bool ReadinPose(sbpl_xy_theta_pt_t* pose, FILE* fIn);
+    bool ReadMotionPrimitives(FILE* fMotPrims);
+    bool ReadinMotionPrimitive(SBPL_xxx_mprimitive* pMotPrim, FILE* fIn);
+    bool ReadinCell(sbpl_xy_theta_cell_t* cell, FILE* fIn);
+    bool ReadinPose(sbpl_xy_theta_pt_t* pose, FILE* fIn);
 
-    virtual void PrintHeuristicValues();
+    void PrintHeuristicValues();
 
-    virtual bool calculateTrailerFromPath(const std::vector<PathState>& path, TrailerState& finalTrailer);
-    virtual bool calculateTrailerTransition(double startX, double startY, double startTheta, double endX, double endY, double endTheta,
+    bool calculateTrailerFromPath(const std::vector<PathState>& path, TrailerState& finalTrailer);
+    bool calculateTrailerTransition(double startX, double startY, double startTheta, double endX, double endY, double endTheta,
                                             double time, const TrailerState& startTrailer, TrailerState& endTrailer);
-    virtual bool IsValidTrailerConfiguration(double x, double y, double theta, int& cost);
+    bool IsValidTrailerConfiguration(double x, double y, double theta, int& cost);
 };
 
 class EnvironmentXXXLAT : public EnvironmentXXXLATTICE
@@ -596,38 +589,38 @@ public:
 
     ~EnvironmentXXXLAT();
 
-    virtual double calculateContAngleDiff(double startangle, double endangle);
+    double calculateContAngleDiff(double startangle, double endangle);
 
     /**
      * \brief sets start in meters/radians
      */
-    virtual int SetStart(double x, double y, double theta);
+    int SetStart(double x, double y, double theta);
     void SetTrailerStart(double theta1_rad, double theta2_rad);
 
     /**
      * \brief sets goal in meters/radians
      */
-    virtual int SetGoal(double x, double y, double theta);
+    int SetGoal(double x, double y, double theta);
 
     /**
      * \brief sets goal tolerance. (Note goal tolerance is ignored currently)
      */
-    virtual void SetGoalTolerance(double tol_x, double tol_y, double tol_theta) { /**< not used yet */ }
+    void SetGoalTolerance(double tol_x, double tol_y, double tol_theta) { /**< not used yet */ }
 
     /**
      * \brief returns state coordinates of state with ID=stateID
      */
-    virtual void GetCoordFromState(int stateID, int& x, int& y, int& theta) const;
+    void GetCoordFromState(int stateID, int& x, int& y, int& theta) const;
 
     /**
      * \brief returns stateID for a state with coords x,y,theta
      */
-    virtual int GetStateFromCoord(int x, int y, int theta);
+    int GetStateFromCoord(int x, int y, int theta);
 
     /**
      * \brief returns the actions / motion primitives of the passed path.
      */
-    virtual void GetActionsFromStateIDPath(std::vector<int>* stateIDPath,
+    void GetActionsFromStateIDPath(std::vector<int>* stateIDPath,
                                            std::vector<EnvXXXLATAction_t>* action_list);
 
     /** \brief converts a path given by stateIDs into a sequence of
@@ -637,21 +630,18 @@ public:
      *         number of points in the input path. The returned coordinates are in
      *         meters,meters,radians
      */
-    virtual void ConvertStateIDPathintoXYThetaPath(std::vector<int>* stateIDPath,
+    void ConvertStateIDPathintoXYThetaPath(std::vector<int>* stateIDPath,
                                                    std::vector<sbpl_xy_theta_pt_t>* xythetaPath, std::vector<sbpl_xy_theta_pt_t>* trailerPath);
 
     /**
      * \brief prints state info (coordinates) into file
      */
-    virtual void PrintState(int stateID, bool bVerbose, FILE* fOut = NULL);
+    void PrintState(int stateID, bool bVerbose, FILE* fOut = NULL);
 
     /**
      * \brief returns all predecessors states and corresponding costs of actions
      */
-    virtual void GetPreds(int TargetStateID, std::vector<int>* PredIDV, std::vector<int>* CostV);
-    virtual void GetLazyPreds(int TargetStateID, std::vector<int>* PredIDV, std::vector<int>* CostV, std::vector<bool>* isTrueCost);
-    virtual void GetPredsWithUniqueIds(int TargetStateID, std::vector<int>* PredIDV, std::vector<int>* CostV);
-    virtual void GetLazyPredsWithUniqueIds(int TargetStateID, std::vector<int>* PredIDV, std::vector<int>* CostV, std::vector<bool>* isTrueCost);
+    void GetPreds(int TargetStateID, std::vector<int>* PredIDV, std::vector<int>* CostV);
 
     /**
      * \brief returns all successors states, costs of corresponding actions
@@ -659,17 +649,11 @@ public:
      *        primitive
      *        if actionindV is NULL, then pointers to actions are not returned
      */
-    virtual void GetSuccs(int SourceStateID, std::vector<int>* SuccIDV, std::vector<int>* CostV,
+    void GetSuccs(int SourceStateID, std::vector<int>* SuccIDV, std::vector<int>* CostV,
                           std::vector<EnvXXXLATAction_t*>* actionindV = NULL);
-    // virtual void GetSuccsOfBestPath(int SourceStateID, std::vector<int>* SuccIDV, std::vector<int>* CostV,
-    //                       std::vector<EnvXXXLATAction_t*>* actionindV = NULL);
 
-    virtual void GetLazySuccs(int SourceStateID, std::vector<int>* SuccIDV, std::vector<int>* CostV, std::vector<bool>* isTrueCost, std::vector<EnvXXXLATAction_t*>* actionindV = NULL);
-    virtual void GetSuccsWithUniqueIds(int SourceStateID, std::vector<int>* SuccIDV, std::vector<int>* CostV, std::vector<EnvXXXLATAction_t*>* actionindV = NULL);
-    virtual void GetLazySuccsWithUniqueIds(int SourceStateID, std::vector<int>* SuccIDV, std::vector<int>* CostV, std::vector<bool>* isTrueCost, std::vector<EnvXXXLATAction_t*>* actionindV = NULL);
-    virtual int GetTrueCost(int parentID, int childID);
-    virtual bool isGoal(int id);
-
+    int GetTrueCost(int parentID, int childID);
+    bool isGoal(int id);
 
     /** \brief this function fill in Predecessor/Successor states of edges
      *         whose costs changed
@@ -677,45 +661,45 @@ public:
      *         (in vector preds_of_changededgesIDV) the IDs of all states that have
      *         outgoing edges that go through the changed cells
      */
-    virtual void GetPredsofChangedEdges(std::vector<nav2dcell_t> const * changedcellsV,
+    void GetPredsofChangedEdges(std::vector<nav2dcell_t> const * changedcellsV,
                                         std::vector<int> *preds_of_changededgesIDV);
 
     /**
      * \brief same as GetPredsofChangedEdges, but returns successor states.
      *        Both functions need to be present for incremental search
      */
-    virtual void GetSuccsofChangedEdges(std::vector<nav2dcell_t> const * changedcellsV,
+    void GetSuccsofChangedEdges(std::vector<nav2dcell_t> const * changedcellsV,
                                         std::vector<int> *succs_of_changededgesIDV);
 
     /**
      * \brief see comments on the same function in the parent class
      */
-    virtual void SetAllActionsandAllOutcomes(CMDPSTATE* state);
+    void SetAllActionsandAllOutcomes(CMDPSTATE* state);
 
     /**
      * \brief see comments on the same function in the parent class
      */
-    virtual int GetFromToHeuristic(int FromStateID, int ToStateID);
+    int GetFromToHeuristic(int FromStateID, int ToStateID);
 
     /**
      * \brief see comments on the same function in the parent class
      */
-    virtual int GetGoalHeuristic(int stateID);
+    int GetGoalHeuristic(int stateID);
 
     /**
      * \brief see comments on the same function in the parent class
      */
-    virtual int GetStartHeuristic(int stateID);
+    int GetStartHeuristic(int stateID);
 
     /**
      * \brief see comments on the same function in the parent class
      */
-    virtual int SizeofCreatedEnv();
+    int SizeofCreatedEnv();
 
     /**
      * \brief see comments on the same function in the parent class
      */
-    virtual void PrintVars() { }
+    void PrintVars() { }
 
     const EnvXXXLATHashEntry_t* GetStateEntry(int state_id) const;
 
@@ -728,20 +712,20 @@ protected:
 
     EnvXXXLATHashEntry_t** Coord2StateIDHashTable_lookup;
 
-    virtual unsigned int GETHASHBIN(unsigned int X, unsigned int Y, unsigned int Theta);
+    unsigned int GETHASHBIN(unsigned int X, unsigned int Y, unsigned int Theta);
 
-    virtual EnvXXXLATHashEntry_t* GetHashEntry_hash(int X, int Y, int Theta);
-    virtual EnvXXXLATHashEntry_t* CreateNewHashEntry_hash(int X, int Y, int Theta);
-    virtual EnvXXXLATHashEntry_t* GetHashEntry_lookup(int X, int Y, int Theta);
-    virtual EnvXXXLATHashEntry_t* CreateNewHashEntry_lookup(int X, int Y, int Theta);
+    EnvXXXLATHashEntry_t* GetHashEntry_hash(int X, int Y, int Theta);
+    EnvXXXLATHashEntry_t* CreateNewHashEntry_hash(int X, int Y, int Theta);
+    EnvXXXLATHashEntry_t* GetHashEntry_lookup(int X, int Y, int Theta);
+    EnvXXXLATHashEntry_t* CreateNewHashEntry_lookup(int X, int Y, int Theta);
 
     //pointers to functions
     EnvXXXLATHashEntry_t* (EnvironmentXXXLAT::*GetHashEntry)(int X, int Y, int Theta);
     EnvXXXLATHashEntry_t* (EnvironmentXXXLAT::*CreateNewHashEntry)(int X, int Y, int Theta);
 
-    virtual void InitializeEnvironment();
+    void InitializeEnvironment();
 
-    virtual void PrintHashTableHist(FILE* fOut);
+    void PrintHashTableHist(FILE* fOut);
 };
 
 #endif

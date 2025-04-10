@@ -3211,9 +3211,6 @@ void EnvironmentXXXLAT::InitializeEnvironment()
     EnvXXXLAT.bInitialized = true;
 }
 
-// examples of hash functions: map state coordinates onto a hash value
-// #define GETHASHBIN(X, Y) (Y*WIDTH_Y+X)
-// here we have state coord: <X1, X2, X3, X4>
 unsigned int EnvironmentXXXLAT::GETHASHBIN(
     unsigned int X1,
     unsigned int X2,
